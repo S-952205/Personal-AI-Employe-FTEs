@@ -1,0 +1,8 @@
+Please review this task and create a summary report.
+
+Task: We need to analyze our Q1 2026 business goals and create a brief summary of:
+1. Revenue targets
+2. Key metrics to track
+3. Any action items from the Company Handbook
+
+Save your response in the Done folder.

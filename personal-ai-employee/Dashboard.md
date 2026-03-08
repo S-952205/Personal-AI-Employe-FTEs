@@ -10,10 +10,10 @@ status: active
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| Pending Actions | 0 | ✅ Clear |
+| Pending Actions | 1 | ⚠️ Pending
 | Active Plans | 0 | ✅ None |
 | Pending Approvals | 0 | ✅ None |
-| Last Processed | - | ⏳ Awaiting first run |
+| Last Processed | 2026-03-08 19:58:59 | ⏳ Awaiting first run |
 
 ---
 

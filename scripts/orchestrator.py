@@ -1,7 +1,7 @@
 """
 Orchestrator for AI Employee - Bronze Tier
 
-Monitors the Needs_Action folder and triggers Claude Code processing.
+Monitors the Needs_Action folder and triggers Qwen Code processing.
 This is the main coordination script for the AI Employee.
 """
 
@@ -119,12 +119,13 @@ class Orchestrator:
         """Create a Plan.md file for Claude to process."""
         if not items:
             return None
-        
+
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         plan_id = datetime.now().strftime('%Y%m%d_%H%M%S')
         plan_path = self.plans_path / f'PLAN_{plan_id}.md'
-        
+
         items_list = '\n'.join([f"- `{item.name}`" for item in items])
-        
+
         content = f"""---
 type: plan
 created: {datetime.now().isoformat()}
@@ -162,20 +163,20 @@ items_count: {len(items)}
 
 *Created by Orchestrator at {now}*
 """
-        
+
         plan_path.write_text(content, encoding='utf-8')
         logger.info(f"Created plan: {plan_path.name}")
         return plan_path
     
-    def trigger_claude(self, plan_path: Path) -> bool:
-        """Trigger Claude Code to process the plan."""
+    def trigger_qwen(self, plan_path: Path) -> bool:
+        """Trigger Qwen Code to process the plan."""
         if not plan_path.exists():
             logger.error(f"Plan file not found: {plan_path}")
             return False
-        
-        logger.info(f"Triggering Claude Code for plan: {plan_path.name}")
-        
-        # Build the prompt for Claude
+
+        logger.info(f"Triggering Qwen Code for plan: {plan_path.name}")
+
+        # Build the prompt for Qwen
         prompt = f"""You are my AI Employee. Process the plan at `{plan_path}`.
 
 Follow these steps:
@@ -192,36 +193,39 @@ Remember:
 - Require approval for sensitive actions (payments > $50, new contacts, etc.)
 - Be proactive in identifying issues and suggesting improvements
 """
-        
+
         try:
-            # Run Claude Code with the prompt
-            # Note: This assumes 'claude' is in PATH
-            cmd = ['claude', '--prompt', prompt]
-            
-            logger.info(f"Running: {' '.join(cmd)}")
-            
+            # Run Qwen Code with the prompt
+            # Note: This assumes 'qwen' is in PATH
+            cmd = f'qwen --prompt "{prompt}"'
+
+            logger.info(f"Running: {cmd}")
+
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=600  # 10 minute timeout
+                timeout=600,  # 10 minute timeout
+                shell=True,  # Required on Windows for PATH resolution
+                encoding='utf-8',  # Explicit UTF-8 encoding
+                errors='replace'  # Replace undecodable characters
             )
-            
+
             if result.returncode == 0:
-                logger.info("Claude Code completed successfully")
+                logger.info("Qwen Code completed successfully")
                 return True
             else:
-                logger.error(f"Claude Code failed: {result.stderr}")
+                logger.error(f"Qwen Code failed: {result.stderr}")
                 return False
-                
+
         except subprocess.TimeoutExpired:
-            logger.error("Claude Code timed out after 10 minutes")
+            logger.error("Qwen Code timed out after 10 minutes")
             return False
         except FileNotFoundError:
-            logger.error("Claude Code not found. Please ensure 'claude' is in PATH")
+            logger.error("Qwen Code not found. Please ensure 'qwen' is in PATH")
             return False
         except Exception as e:
-            logger.error(f"Error triggering Claude Code: {e}")
+            logger.error(f"Error triggering Qwen Code: {e}")
             return False
     
     def process_approved_items(self, items: List[Path]):
@@ -242,32 +246,75 @@ Remember:
             logger.info(f"Moved to Done: {dest.name}")
     
     def run_once(self):
-        """Run a single processing cycle."""
+        """Run a single processing cycle with Ralph Wiggum Loop."""
         logger.info("Starting processing cycle")
-        
+
         # Get pending items
         pending = self.get_pending_items()
         approved = self.get_approved_items()
-        
+
         logger.info(f"Found {len(pending)} pending items, {len(approved)} approved items")
-        
+
         # Update dashboard
         self.update_dashboard(len(pending), len(approved))
-        
+
         # Process approved items first
         if approved:
             self.process_approved_items(approved)
-        
-        # Create plan and trigger Claude if there are pending items
+
+        # Ralph Wiggum Loop: Keep triggering Qwen until items are in /Done
         if pending:
             plan_path = self.create_plan(pending)
             if plan_path:
-                success = self.trigger_claude(plan_path)
-                if success:
-                    # Mark items as processed
-                    for item in pending:
-                        self.processed_files.add(item.name)
-        
+                max_iterations = 5  # Prevent infinite loops
+                iteration = 0
+                original_pending = list(pending)  # Keep track of original items
+
+                while iteration < max_iterations:
+                    iteration += 1
+                    logger.info(f"Ralph Wiggum Loop: Iteration {iteration}/{max_iterations}")
+
+                    success = self.trigger_qwen(plan_path)
+
+                    if not success:
+                        logger.error("Qwen Code failed, stopping loop")
+                        break
+
+                    # Check if items were moved to /Done
+                    still_pending = self.get_pending_items()
+                    completed = [item for item in pending if item.name not in still_pending]
+
+                    if len(completed) == len(pending):
+                        logger.info(f"All {len(pending)} items completed and moved to /Done")
+                        for item in pending:
+                            self.processed_files.add(item.name)
+                        break
+                    elif len(completed) > 0:
+                        logger.info(f"{len(completed)} items completed, {len(pending) - len(completed)} remaining")
+                        pending = still_pending
+                    else:
+                        logger.warning("No items completed in this iteration, retrying...")
+
+                else:
+                    logger.warning(f"Max iterations ({max_iterations}) reached")
+                    # Fallback: If Qwen couldn't complete, move files to Done with note
+                    # This prevents infinite loops when Qwen lacks MCP capabilities
+                    for item in original_pending:
+                        if item.exists():
+                            logger.info(f"Fallback: Moving {item.name} to Done (Qwen lacked MCP access)")
+                            content = item.read_text(encoding='utf-8')
+                            content += f"\n\n---\n\n**Note:** Qwen Code was triggered but could not process this item automatically.\n"
+                            content += f"**Reason:** File system MCP not configured.\n"
+                            content += f"**Action Required:** Manual review and processing.\n"
+                            content += f"**Timestamp:** {datetime.now().isoformat()}\n"
+                            item.write_text(content, encoding='utf-8')
+
+                            # Move to Done
+                            dest = self.done_path / item.name
+                            item.rename(dest)
+                            self.processed_files.add(item.name)
+                            logger.info(f"Moved to Done (fallback): {dest.name}")
+
         logger.info("Processing cycle complete")
     
     def run(self):
