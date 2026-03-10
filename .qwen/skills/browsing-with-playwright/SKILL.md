@@ -30,7 +30,7 @@ npx @playwright/mcp@latest --port 8808 --shared-browser-context &
 bash scripts/stop-server.sh
 
 # Or manually
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_close -p '{}'
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_close -p '{}'
 pkill -f "@playwright/mcp"
 ```
 
@@ -48,21 +48,21 @@ pkill -f "@playwright/mcp"
 
 ```bash
 # Go to URL
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_navigate \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_navigate \
   -p '{"url": "https://example.com"}'
 
 # Go back
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_navigate_back -p '{}'
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_navigate_back -p '{}'
 ```
 
 ### Get Page State
 
 ```bash
 # Accessibility snapshot (returns element refs for clicking/typing)
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_snapshot -p '{}'
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_snapshot -p '{}'
 
 # Screenshot
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_take_screenshot \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_take_screenshot \
   -p '{"type": "png", "fullPage": true}'
 ```
 
@@ -72,19 +72,19 @@ Use `ref` from snapshot output to target elements:
 
 ```bash
 # Click element
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_click \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_click \
   -p '{"element": "Submit button", "ref": "e42"}'
 
 # Type text
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_type \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_type \
   -p '{"element": "Search input", "ref": "e15", "text": "hello world", "submit": true}'
 
 # Fill form (multiple fields)
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_fill_form \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_fill_form \
   -p '{"fields": [{"ref": "e10", "value": "john@example.com"}, {"ref": "e12", "value": "password123"}]}'
 
 # Select dropdown
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_select_option \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_select_option \
   -p '{"element": "Country dropdown", "ref": "e20", "values": ["US"]}'
 ```
 
@@ -92,18 +92,18 @@ python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_select_op
 
 ```bash
 # Wait for text to appear
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_wait_for \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_wait_for \
   -p '{"text": "Success"}'
 
 # Wait for time (ms)
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_wait_for \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_wait_for \
   -p '{"time": 2000}'
 ```
 
 ### Execute JavaScript
 
 ```bash
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_evaluate \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_evaluate \
   -p '{"function": "return document.title"}'
 ```
 
@@ -112,7 +112,7 @@ python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_evaluate 
 For complex workflows, use `browser_run_code` to run multiple actions in one call:
 
 ```bash
-python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_run_code \
+python scripts/mcp-client.py call -u http://localhost:8808 -t browser_run_code \
   -p '{"code": "async (page) => { await page.goto(\"https://example.com\"); await page.click(\"text=Learn more\"); return await page.title(); }"}'
 ```
 
@@ -136,15 +136,15 @@ python3 scripts/mcp-client.py call -u http://localhost:8808 -t browser_run_code 
 
 ## Verification
 
-Run: `python3 scripts/verify.py`
+Run: `python scripts/mcp-client.py list -u http://localhost:8808`
 
-Expected: `✓ Playwright MCP server running`
+Expected: List of available browser tools
 
 ## If Verification Fails
 
-1. Run diagnostic: `pgrep -f "@playwright/mcp"`
+1. Run diagnostic: Check Task Manager for Node.js process
 2. Check: Server process running on port 8808
-3. Try: `bash scripts/start-server.sh`
+3. Try: `npx @playwright/mcp@latest --port 8808 --shared-browser-context`
 4. **Stop and report** if still failing - do not proceed with downstream steps
 
 ## Tool Reference

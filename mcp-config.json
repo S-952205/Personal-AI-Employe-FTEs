@@ -1,0 +1,39 @@
+{
+  "servers": {
+    "email": {
+      "command": "node",
+      "args": ["mcp-servers/email-mcp/index.js"],
+      "env": {
+        "GMAIL_CREDENTIALS_PATH": "credentials.json",
+        "GMAIL_TOKEN_PATH": "token.pickle"
+      },
+      "disabled": false
+    },
+    "linkedin": {
+      "command": "node",
+      "args": ["mcp-servers/linkedin-mcp/index.js"],
+      "env": {
+        "LINKEDIN_SESSION_PATH": "linkedin_session",
+        "HEADLESS": "true"
+      },
+      "disabled": false
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "personal-ai-employee"],
+      "disabled": false
+    }
+  },
+  "settings": {
+    "email": {
+      "require_approval_for_send": true,
+      "require_approval_for_new_contacts": true,
+      "auto_send_to_known_contacts": false
+    },
+    "linkedin": {
+      "require_approval_for_posts": true,
+      "require_approval_for_connection_requests": true,
+      "auto_comment": false
+    }
+  }
+}

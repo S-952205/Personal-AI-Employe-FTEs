@@ -5,6 +5,24 @@
       "source": "bilalmk/todo_correct",
       "sourceType": "github",
       "computedHash": "f73daf75e38650c202e61f652a26578db157f8423e8bcf283bcd93b441641461"
+    },
+    "email-operations": {
+      "source": "local",
+      "sourceType": "local",
+      "description": "Email operations via Gmail MCP - Send, draft, search emails",
+      "computedHash": "local-silver-tier"
+    },
+    "linkedin-operations": {
+      "source": "local",
+      "sourceType": "local",
+      "description": "LinkedIn operations via Playwright MCP - Posts, messages, connections",
+      "computedHash": "local-silver-tier"
+    },
+    "hitl-approval": {
+      "source": "local",
+      "sourceType": "local",
+      "description": "Human-in-the-Loop approval workflow management",
+      "computedHash": "local-silver-tier"
     }
   }
 }

@@ -1,18 +1,21 @@
-# Personal AI Employee FTE - Bronze Tier
+# Personal AI Employee FTE - Silver Tier
 
 > **Your life and business on autopilot. Local-first, agent-driven, human-in-the-loop.**
 
-This is a **Bronze Tier** implementation of a Personal AI Employee - an autonomous agent that works 24/7 to manage your personal and business affairs using **Claude Code** as the reasoning engine and **Obsidian** as the knowledge dashboard.
+This is a **Silver Tier** implementation of a Personal AI Employee - an autonomous agent that works 24/7 to manage your personal and business affairs using **Claude Code** as the reasoning engine and **Obsidian** as the knowledge dashboard.
 
 ---
 
-## 🎯 Bronze Tier Deliverables
+## 🎯 Silver Tier Deliverables
 
-- ✅ Obsidian vault with `Dashboard.md` and `Company_Handbook.md`
-- ✅ One working Watcher script (File System monitoring)
-- ✅ Claude Code integration for reading/writing to the vault
-- ✅ Basic folder structure: `/Inbox`, `/Needs_Action`, `/Done`
-- ✅ All AI functionality implemented as Agent Skills
+- ✅ All Bronze requirements plus:
+- ✅ Gmail Watcher - Monitor Gmail for urgent emails
+- ✅ LinkedIn Watcher - Monitor LinkedIn for messages, notifications, connections
+- ✅ Email MCP Server - Send and draft emails via Gmail API
+- ✅ LinkedIn MCP Server - Post updates, send messages, connect with people
+- ✅ Human-in-the-Loop (HITL) approval workflow for sensitive actions
+- ✅ Windows Task Scheduler integration for automated startup
+- ✅ Enhanced Orchestrator with multi-watcher support
 
 ---
 
@@ -30,20 +33,37 @@ Personal-AI-Employe-FTEs/
 │   ├── Plans/
 │   ├── Approved/
 │   ├── Rejected/
+│   ├── Pending_Approval/
+│   ├── In_Progress/
 │   ├── Accounting/
-│   ├── Briefings/
-│   └── Pending_Approval/
+│   └── Briefings/
 │
-├── scripts/                # 🔧 Python scripts (don't open in Obsidian)
+├── scripts/                # 🔧 Python scripts
 │   ├── filesystem_watcher.py
+│   ├── gmail_watcher.py       # NEW: Silver Tier
+│   ├── linkedin_watcher.py    # NEW: Silver Tier
 │   ├── orchestrator.py
+│   ├── gmail_auth.py          # NEW: Gmail authentication
+│   ├── start-all.bat          # NEW: Start all watchers
+│   ├── setup-tasks.bat        # NEW: Windows Task Scheduler setup
+│   ├── test_silver.py         # NEW: Silver tier verification
 │   └── test_bronze.py
-├── logs/                   # 📝 System logs
+│
+├── mcp-servers/              # 🤖 MCP Servers (NEW: Silver Tier)
+│   ├── email-mcp/
+│   │   ├── package.json
+│   │   └── index.js
+│   └── linkedin-mcp/
+│       ├── package.json
+│       └── index.js
+│
+├── logs/                     # 📝 System logs
 ├── requirements.txt
+├── mcp-config.json           # NEW: MCP configuration
 └── README.md
 ```
 
-**📖 Open `personal-ai-employee/` folder in Obsidian** - This dedicated vault contains only the Markdown files and working folders you need to interact with.
+**📖 Open `personal-ai-employee/` folder in Obsidian** - This dedicated vault contains only the Markdown files and working folders.
 
 ---
 
@@ -56,97 +76,139 @@ Personal-AI-Employe-FTEs/
 | [Claude Code](https://claude.com/product/claude-code) | Active subscription | Primary reasoning engine |
 | [Obsidian](https://obsidian.md/download) | v1.10.6+ | Knowledge base & dashboard |
 | [Python](https://www.python.org/downloads/) | 3.13+ | Watcher scripts |
-| [Node.js](https://nodejs.org/) | v24+ LTS | MCP servers (future) |
+| [Node.js](https://nodejs.org/) | v24+ LTS | MCP servers |
 
 ### Installation
 
-1. **Clone or download this repository**
+#### Step 1: Install Python Dependencies
 
-   ```bash
-   cd Personal-AI-Employe-FTEs
-   ```
+```bash
+cd Personal-AI-Employe-FTEs
+pip install -r requirements.txt
+```
 
-2. **Install Python dependencies**
+#### Step 2: Install Node.js Dependencies (for MCP servers)
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+# Email MCP Server
+cd mcp-servers/email-mcp
+npm install
 
-3. **Verify Claude Code is installed**
+# LinkedIn MCP Server
+cd ../linkedin-mcp
+npm install
+```
 
-   ```bash
-   claude --version
-   ```
+#### Step 3: Install Playwright Browsers
 
-4. **Create logs directory**
+```bash
+playwright install
+```
 
-   ```bash
-   mkdir logs
-   ```
+#### Step 4: Verify Installation
+
+```bash
+python scripts/test_silver.py
+```
+
+This will check all components and report any missing dependencies.
 
 ---
 
 ## 📖 Usage
 
-### Step 1: Start the File System Watcher
+### Option 1: Manual Start (Recommended for Testing)
 
-The watcher monitors the `/Inbox` folder for new files:
+Start all watchers and orchestrator:
 
 ```bash
-python scripts/filesystem_watcher.py
+scripts/start-all.bat
 ```
 
-**What it does:**
-- Watches `/Inbox` for new files
-- Creates action files in `/Needs_Action` with metadata
-- Logs all activity to `logs/filesystem_watcher.log`
+This opens three terminal windows:
+- **Gmail Watcher** - Checks every 2 minutes
+- **LinkedIn Watcher** - Checks every 5 minutes  
+- **Orchestrator** - Processes every 30 seconds
 
-### Step 2: Start the Orchestrator
+### Option 2: Windows Task Scheduler (Auto-start on Boot)
 
-In a **separate terminal**, start the orchestrator:
+Run as Administrator:
 
 ```bash
+scripts/setup-tasks.bat
+```
+
+This creates scheduled tasks that start automatically when Windows boots.
+
+### Option 3: Individual Watchers
+
+Start specific watchers:
+
+```bash
+# File System Watcher only
+python scripts/filesystem_watcher.py
+
+# Gmail Watcher only (requires credentials)
+python scripts/gmail_watcher.py
+
+# LinkedIn Watcher only
+python scripts/linkedin_watcher.py
+
+# Orchestrator only
 python scripts/orchestrator.py
 ```
 
-**What it does:**
-- Monitors `/Needs_Action` for pending items
-- Creates processing plans in `/Plans`
-- Triggers Claude Code to process items
-- Updates `Dashboard.md` with status
-- Processes approved items from `/Approved`
+---
 
-### Step 3: Test the System
+## 🔧 Gmail Setup (Optional)
 
-1. **Drop a file in the Inbox**
-   
-   Create a test file:
-   ```bash
-   echo "Test content" > Inbox/test_file.txt
-   ```
+To enable Gmail monitoring:
 
-2. **Watch the magic happen:**
-   - File System Watcher detects the new file
-   - Creates `FILE_*.md` in `/Needs_Action`
-   - Orchestrator picks it up and creates a plan
-   - Claude Code processes the item
-   - Item moves to `/Done` when complete
+### Step 1: Get Gmail Credentials
 
-### Step 4: Open in Obsidian
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Create or select a project
+3. Enable Gmail API
+4. Create OAuth 2.0 Client ID credentials
+5. Download the `credentials.json` file
+6. Place it in the project root: `Personal-AI-Employe-FTEs/credentials.json`
 
-Open the `personal-ai-employee` folder in Obsidian:
+### Step 2: Authenticate
 
 ```bash
-obsidian personal-ai-employee
+python scripts/gmail_auth.py
 ```
 
-Or manually:
-1. Open Obsidian
-2. Click "Open folder as vault"
-3. Navigate to `Personal-AI-Employe-FTEs/personal-ai-employee`
-4. Click "Open"
+Follow the prompts to authorize. A `token.pickle` file will be created for future use.
 
-This vault contains only the Markdown files and working folders - no code files cluttering your view!
+### Step 3: Start Gmail Watcher
+
+```bash
+python scripts/gmail_watcher.py
+```
+
+---
+
+## 🔗 LinkedIn Setup (Optional)
+
+LinkedIn watcher uses browser automation with persistent sessions.
+
+### First Run Setup
+
+1. Start the LinkedIn watcher:
+   ```bash
+   python scripts/linkedin_watcher.py
+   ```
+
+2. On first run, manually log in to LinkedIn in the browser window that opens
+
+3. The session is saved to `linkedin_session/` folder for future runs
+
+### Notes
+
+- ⚠️ **Be aware of LinkedIn's Terms of Service** - Use responsibly
+- ⚠️ The watcher runs in headless mode by default
+- ⚠️ Session cookies are stored locally for persistent login
 
 ---
 
@@ -155,26 +217,97 @@ This vault contains only the Markdown files and working folders - no code files 
 ### Architecture Overview
 
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   File Drop     │ ──▶ │   File System   │ ──▶ │  Needs_Action   │
-│   (Inbox)       │     │    Watcher      │     │   (Action Files)│
-└─────────────────┘     └─────────────────┘     └────────┬────────┘
-                                                         │
-                                                         ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Done          │ ◀── │   Claude Code   │ ◀── │   Orchestrator  │
-│   (Completed)   │     │   (Processing)  │     │   (Triggers)    │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
+┌─────────────────┐     ┌─────────────────┐
+│   Gmail         │────▶│   Gmail         │
+│   (External)    │     │   Watcher       │
+└─────────────────┘     └────────┬────────┘
+                                 │
+┌─────────────────┐     ┌────────▼────────┐
+│   LinkedIn      │────▶│   LinkedIn      │
+│   (External)    │     │   Watcher       │
+└─────────────────┘     └────────┬────────┘
+                                 │
+┌─────────────────┐     ┌────────▼────────┐
+│   File Drop     │────▶│   File System   │
+│   (Inbox)       │     │   Watcher       │
+└─────────────────┘     └────────┬────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │    Needs_Action         │
+                    │    (Action Files)       │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │    Orchestrator         │
+                    │    (Creates Plans)      │
+                    └────────────┬────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │    Claude Code          │
+                    │    (Processing)         │
+                    └────────────┬────────────┘
+                                 │
+          ┌──────────────────────┼──────────────────────┐
+          │                      │                      │
+┌─────────▼─────────┐  ┌─────────▼─────────┐  ┌────────▼────────┐
+│   Pending         │  │   Approved        │  │   Done          │
+│   Approval        │  │   (Execute)       │  │   (Complete)    │
+└───────────────────┘  └───────────────────┘  └─────────────────┘
 ```
 
 ### Processing Flow
 
-1. **Input:** File dropped in `/Inbox`
-2. **Detection:** Watcher creates action file in `/Needs_Action`
+1. **Input Sources:**
+   - File dropped in `/Inbox`
+   - New Gmail received
+   - LinkedIn notification/message
+
+2. **Detection:** Watchers create action files in `/Needs_Action`
+
 3. **Planning:** Orchestrator creates plan in `/Plans`
+
 4. **Processing:** Claude Code reads plan + handbook + business goals
-5. **Action:** Claude processes item according to rules
-6. **Output:** Item moved to `/Done` with processing notes
+
+5. **HITL Decision:**
+   - Normal action → Execute directly
+   - Sensitive action → Create approval request in `/Pending_Approval/`
+
+6. **Human Approval:**
+   - User reviews `/Pending_Approval/` files
+   - Move to `/Approved/` to execute
+   - Move to `/Rejected/` to discard
+
+7. **Output:** Item moved to `/Done` with processing notes
+
+---
+
+## 🛡️ Human-in-the-Loop (HITL) Workflow
+
+### When Approval is Required
+
+Per `Company_Handbook.md`, approval is required for:
+
+| Action Type | Threshold |
+|-------------|-----------|
+| Payments | > $50 |
+| Emails to new contacts | Always |
+| LinkedIn posts | Always (draft only) |
+| Connection requests to VIPs | Always |
+| Subscription cancellations | Always |
+
+### Approval Process
+
+1. **Claude creates approval request:**
+   ```
+   /Pending_Approval/APPROVAL_email_20260310_143022.md
+   ```
+
+2. **User reviews the file** (in Obsidian or file explorer)
+
+3. **User decides:**
+   - ✅ **Approve:** Move to `/Approved/` → Auto-executes
+   - ❌ **Reject:** Move to `/Rejected/` → Add reason
+   - ✏️ **Modify:** Edit file → Move to `/Approved/`
 
 ---
 
@@ -184,10 +317,9 @@ This vault contains only the Markdown files and working folders - no code files 
 
 Edit `Company_Handbook.md` to customize:
 
-- Communication rules (email, WhatsApp, social media)
+- Communication rules (email, LinkedIn)
 - Financial rules (payment thresholds, invoicing)
 - Task priority classifications
-- Subscription management rules
 - VIP contacts and known clients
 
 ### Business Goals
@@ -199,51 +331,96 @@ Edit `Business_Goals.md` to set:
 - Active projects
 - Subscription patterns to detect
 
-### Dashboard
+### MCP Configuration
 
-The `Dashboard.md` is auto-updated by the orchestrator. Manual edits are preserved.
+Edit `mcp-config.json` to configure MCP servers:
+
+```json
+{
+  "settings": {
+    "email": {
+      "require_approval_for_send": true,
+      "require_approval_for_new_contacts": true
+    },
+    "linkedin": {
+      "require_approval_for_posts": true,
+      "require_approval_for_connection_requests": true
+    }
+  }
+}
+```
 
 ---
 
 ## 🔧 Troubleshooting
 
+### Gmail Watcher Issues
+
 | Issue | Solution |
 |-------|----------|
-| Watcher not detecting files | Ensure `logs/` directory exists |
-| Claude Code not found | Add to PATH: `export PATH="$PATH:$(which claude)"` |
-| Orchestrator not triggering Claude | Check Claude subscription is active |
+| credentials.json not found | Download from Google Cloud Console |
+| Authentication failed | Run `python scripts/gmail_auth.py` |
+| No new emails detected | Check Gmail API scopes in auth |
+
+### LinkedIn Watcher Issues
+
+| Issue | Solution |
+|-------|----------|
+| Not logged in | Manually log in on first run |
+| Session expired | Delete `linkedin_session/` and re-authenticate |
+| Element not found | LinkedIn may have changed UI - update selectors |
+
+### Orchestrator Issues
+
+| Issue | Solution |
+|-------|----------|
+| Claude Code not found | Add to PATH or check subscription |
 | Files not moving to Done | Check file permissions |
+| Approval not triggering | Check `/Pending_Approval/` folder |
 
 ### View Logs
 
 ```bash
-# Watch watcher logs
-tail -f logs/filesystem_watcher.log
+# Watch all logs
+cd logs
 
-# Watch orchestrator logs
-tail -f logs/orchestrator.log
+# Gmail watcher
+type gmail_watcher.log
+
+# LinkedIn watcher
+type linkedin_watcher.log
+
+# Orchestrator
+type orchestrator.log
 ```
 
 ---
 
-## 🛡️ Security Notes
+## 📈 Silver Tier Features Summary
 
-- **Never commit credentials** - Use environment variables
-- **Review before approving** - Check `/Pending_Approval` before moving to `/Approved`
-- **Audit trail** - All actions are logged in `/Logs`
-- **Local-first** - All data stays in your Obsidian vault
+| Feature | Status | Description |
+|---------|--------|-------------|
+| File System Watcher | ✅ | Monitors `/Inbox` for new files |
+| Gmail Watcher | ✅ | Monitors Gmail for unread emails |
+| LinkedIn Watcher | ✅ | Monitors LinkedIn notifications/messages |
+| Email MCP Server | ✅ | Send/draft emails via Gmail API |
+| LinkedIn MCP Server | ✅ | Post updates, send messages, connect |
+| HITL Workflow | ✅ | Approval system for sensitive actions |
+| Windows Scheduler | ✅ | Auto-start on boot |
+| Ralph Wiggum Loop | ✅ | Autonomous multi-step processing |
 
 ---
 
-## 📈 Next Steps (Silver Tier)
+## 🚀 Next Steps (Gold Tier)
 
-To upgrade to Silver Tier, add:
+To upgrade to Gold Tier, add:
 
-1. **Gmail Watcher** - Monitor Gmail for urgent emails
-2. **WhatsApp Watcher** - Monitor WhatsApp for keywords
-3. **MCP Server** - Send emails automatically
-4. **HITL Workflow** - Human-in-the-loop approval for sensitive actions
-5. **Scheduling** - Cron/Task Scheduler for automated runs
+1. **Odoo Accounting Integration** - Self-hosted accounting via MCP
+2. **Facebook/Instagram Integration** - Social media posting
+3. **Twitter (X) Integration** - Tweet scheduling
+4. **Weekly CEO Briefing** - Automated business audit
+5. **Cloud Deployment** - 24/7 always-on operation
+6. **Multi-Agent A2A** - Agent-to-agent communication
 
 ---
 
@@ -266,8 +443,9 @@ Join the Wednesday Research Meeting:
 
 - [Claude Code Documentation](https://claude.com/product/claude-code)
 - [MCP Protocol](https://modelcontextprotocol.io/)
+- [Gmail API](https://developers.google.com/gmail/api)
+- [Playwright Documentation](https://playwright.dev/)
 - [Obsidian Help](https://help.obsidian.md/)
-- [Watchdog Documentation](https://pypi.org/project/watchdog/)
 
 ---
 
