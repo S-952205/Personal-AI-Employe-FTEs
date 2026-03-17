@@ -44,7 +44,11 @@ class GmailWatcher:
         self.token_path = Path(token_path) if token_path else self.vault_path.parent / 'token.pickle'
         self.check_interval = check_interval
         self.processed_ids = set()
+        self.processed_ids_file = self.vault_path.parent / '.gmail_processed_ids.json'
         self.service = None
+        
+        # Load previously processed IDs from file
+        self._load_processed_ids()
         
         # Keywords for priority detection
         self.urgent_keywords = ['urgent', 'asap', 'invoice', 'payment', 'help', 'deadline', 'emergency']
@@ -52,6 +56,31 @@ class GmailWatcher:
 
         # Ensure Needs_Action directory exists
         self.needs_action.mkdir(parents=True, exist_ok=True)
+
+    def _load_processed_ids(self):
+        """Load previously processed email IDs from file."""
+        if self.processed_ids_file.exists():
+            try:
+                import json
+                with open(self.processed_ids_file, 'r') as f:
+                    self.processed_ids = set(json.load(f))
+                logger.info(f"Loaded {len(self.processed_ids)} previously processed email IDs")
+            except Exception as e:
+                logger.warning(f"Could not load processed IDs: {e}")
+                self.processed_ids = set()
+
+    def _save_processed_ids(self):
+        """Save processed email IDs to file."""
+        try:
+            import json
+            # Keep only last 1000 IDs to prevent file from growing too large
+            if len(self.processed_ids) > 1000:
+                self.processed_ids = set(list(self.processed_ids)[-1000:])
+            with open(self.processed_ids_file, 'w') as f:
+                json.dump(list(self.processed_ids), f)
+            logger.debug(f"Saved {len(self.processed_ids)} processed email IDs")
+        except Exception as e:
+            logger.warning(f"Could not save processed IDs: {e}")
 
     def authenticate(self) -> bool:
         """Authenticate with Gmail API and build service."""
@@ -117,19 +146,23 @@ class GmailWatcher:
             
             messages = results.get('messages', [])
             new_messages = []
-            
+
             for msg in messages:
                 if msg['id'] not in self.processed_ids:
                     # Get full message details
                     message = self.service.users().messages().get(
-                        userId='me', 
+                        userId='me',
                         id=msg['id'],
                         format='full'
                     ).execute()
-                    
+
                     new_messages.append(message)
                     self.processed_ids.add(msg['id'])
             
+            # Save processed IDs to persist between runs
+            if new_messages:
+                self._save_processed_ids()
+
             return new_messages
             
         except HttpError as error:

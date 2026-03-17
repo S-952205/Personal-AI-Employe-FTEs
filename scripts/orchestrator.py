@@ -3,6 +3,8 @@ Orchestrator for AI Employee - Silver Tier
 
 Enhanced orchestrator with HITL (Human-in-the-Loop) workflow,
 multi-watcher support, and MCP server integration.
+
+Uses Qwen Code for AI reasoning and processing.
 """
 
 import subprocess
@@ -185,7 +187,7 @@ item_types: {', '.join(item_types)}
 
 {items_list}
 
-## Instructions for Claude Code
+## Instructions for Qwen Code
 
 1. Read each item in the list above from `/Needs_Action/`
 2. Review the [Company Handbook](../Company_Handbook.md) for rules of engagement
@@ -292,38 +294,61 @@ _Add notes here_
             logger.error(f"Error creating approval request: {e}")
             return None
 
-    def trigger_claude(self, plan_path: Path) -> bool:
-        """Trigger Claude Code to process the plan."""
+    def trigger_qwen(self, plan_path: Path, output_file: Path = None) -> bool:
+        """Trigger Qwen Code to process the plan."""
         if not plan_path.exists():
             logger.error(f"Plan file not found: {plan_path}")
             return False
 
-        logger.info(f"Triggering Claude Code for plan: {plan_path.name}")
+        logger.info(f"Triggering Qwen Code for plan: {plan_path.name}")
 
-        # Build the prompt for Claude
-        prompt = f"""You are my AI Employee. Process the plan at `{plan_path}`.
+        # Get list of emails to process
+        emails_to_process = [p.name for p in plan_path.parent.parent.glob('Needs_Action/*.md')]
+        
+        # Read email content for context
+        email_contexts = []
+        for email_file in emails_to_process:
+            email_path = plan_path.parent.parent / 'Needs_Action' / email_file
+            if email_path.exists():
+                content = email_path.read_text(encoding='utf-8')
+                # Extract key info
+                from_email = ''
+                subject = ''
+                for line in content.split('\n')[:20]:
+                    if line.startswith('from:'):
+                        from_email = line.split(':', 1)[1].strip()
+                    if line.startswith('subject:'):
+                        subject = line.split(':', 1)[1].strip()
+                email_contexts.append(f"File: {email_file}, From: {from_email}, Subject: {subject}")
+        
+        email_context_str = '\n'.join(email_contexts)
 
-Follow these steps:
-1. Read the plan file to understand what needs to be done
-2. Review the Company Handbook for rules of engagement
-3. Review Business Goals for context
-4. Process each item in the Needs_Action folder
-5. Apply the rules from the handbook
-6. For sensitive actions, create approval requests in /Pending_Approval/
-7. For automatic actions, execute them directly
-8. Move completed items to /Done/ with processing notes
-9. Update the Dashboard with results
+        # Build the prompt for Qwen - SIMPLE JSON FORMAT
+        prompt = f'''You are my AI Employee. Process these emails from Needs_Action folder.
 
-Remember:
-- Always be transparent and log your actions
-- Require approval for sensitive actions (payments > $50, new contacts, posts)
-- Be proactive in identifying issues and suggesting improvements
-- Use MCP servers for external actions when available
-"""
+**Emails to process:**
+{email_context_str}
+
+**RULES:**
+- Unknown sender with business inquiry → approval_required + draft response
+- Known contact → approval_required + draft response  
+- Promotional/newsletter → archive
+- Test/greeting from yourself → archive
+
+**OUTPUT FORMAT:**
+Output ONLY JSON in a code block. Example:
+```json
+[
+  {{"email_file": "EMAIL_test.md", "decision": "approval_required", "reason": "Business inquiry", "draft_response": "Dear Sender,\\n\\nThank you for your email.\\n\\nBest regards"}},
+  {{"email_file": "EMAIL_promo.md", "decision": "archive", "reason": "Newsletter", "draft_response": ""}}
+]
+```
+
+Begin. Output ONLY the JSON:'''
 
         try:
-            # Run Claude Code with the prompt
-            cmd = f'claude --prompt "{prompt}"'
+            # Run Qwen Code with the prompt
+            cmd = f'qwen --prompt "{prompt}"'
 
             logger.info(f"Running: {cmd}")
 
@@ -338,24 +363,31 @@ Remember:
             )
 
             if result.returncode == 0:
-                logger.info("Claude Code completed successfully")
+                logger.info("Qwen Code completed successfully")
+                
+                # Save Qwen's output to a file for parsing
+                if output_file:
+                    output_file.write_text(result.stdout, encoding='utf-8')
+                    logger.info(f"Qwen output saved to: {output_file}")
+                    logger.info(f"Qwen output preview: {result.stdout[:500]}...")
+                
                 return True
             else:
-                logger.error(f"Claude Code failed: {result.stderr}")
+                logger.error(f"Qwen Code failed: {result.stderr}")
                 return False
 
         except subprocess.TimeoutExpired:
-            logger.error("Claude Code timed out after 10 minutes")
+            logger.error("Qwen Code timed out after 10 minutes")
             return False
         except FileNotFoundError:
-            logger.error("Claude Code not found. Please ensure 'claude' is in PATH")
+            logger.error("Qwen Code not found. Please ensure 'qwen' is in PATH")
             return False
         except Exception as e:
-            logger.error(f"Error triggering Claude Code: {e}")
+            logger.error(f"Error triggering Qwen Code: {e}")
             return False
 
     def process_approved_items(self, items: List[Path]):
-        """Process items that have been approved."""
+        """Process items that have been approved - execute MCP actions."""
         for item in items:
             logger.info(f"Processing approved item: {item.name}")
 
@@ -371,14 +403,82 @@ Remember:
                             action_type = line.split(':')[1].strip()
                             break
 
+                # Extract email details if this is an email action
+                email_to = ""
+                email_subject = ""
+                email_body = ""
+
+                if action_type == "send_email":
+                    # Extract recipient from "- **To:**" line (new format)
+                    for line in content.split('\n'):
+                        # New format: - **To:** email@example.com
+                        if '- **To:**' in line or '- To:' in line:
+                            # Extract email after colon, remove markdown and whitespace
+                            email_part = line.split(':', 1)[1].strip()
+                            # Remove markdown bold markers and any leading asterisks
+                            email_to = email_part.replace('**', '').strip()
+                            break
+                    
+                    # Extract subject
+                    for line in content.split('\n'):
+                        if '- **Subject:**' in line or '- Subject:' in line:
+                            subject_part = line.split(':', 1)[1].strip()
+                            email_subject = subject_part.replace('**', '').strip()
+                            break
+                    
+                    # Try to extract draft response
+                    if "## Draft Response" in content or "## Email Response" in content:
+                        # Get content between "## Draft Response" and next section
+                        parts = content.split("## Draft Response")
+                        if len(parts) > 1:
+                            draft_section = parts[1].split('\n---\n')[0].strip()
+                            # Remove markdown quote markers
+                            draft_lines = []
+                            for line in draft_section.split('\n'):
+                                if line.startswith('>'):
+                                    draft_lines.append(line[1:].strip())
+                                elif not line.startswith('##') and line.strip():
+                                    draft_lines.append(line.strip())
+                            email_body = '\n'.join(draft_lines)
+
+                    logger.info(f"Extracted email details - To: {email_to}, Subject: {email_subject}, Body length: {len(email_body) if email_body else 0}")
+
                 # Add processing note
-                content += f"\n\n---\n\n**Processed:** {datetime.now().isoformat()}\n**Status:** Approved and executed\n"
-                
-                # For Silver tier, we log the action but don't auto-execute MCP
-                # (MCP integration would go here for full automation)
+                content += f"\n\n---\n\n**Processed:** {datetime.now().isoformat()}\n**Status:** Approved and executing\n"
                 content += f"**Action Type:** {action_type}\n"
-                content += f"**Note:** Ready for MCP execution (configure MCP servers for auto-execution)\n"
-                
+
+                # Execute the action via MCP
+                if action_type == "send_email" and email_to and email_body:
+                    logger.info(f"Sending email via MCP to: {email_to}")
+                    content += f"**Email To:** {email_to}\n"
+                    content += f"**Email Subject:** {email_subject}\n"
+
+                    # Try to send via MCP client
+                    try:
+                        mcp_result = self._send_email_via_mcp(email_to, email_subject, email_body)
+                        if mcp_result.get('success', False):
+                            content += f"**MCP Result:** Email sent successfully\n"
+                            logger.info(f"✓ Email sent successfully to {email_to}")
+                        else:
+                            content += f"**MCP Result:** {mcp_result.get('error', 'Unknown error')}\n"
+                            logger.warning(f"Email send failed: {mcp_result.get('error')}")
+                            # Log the actual command for debugging
+                            logger.debug(f"MCP command attempted")
+                    except Exception as mcp_error:
+                        content += f"**MCP Error:** {str(mcp_error)}\n"
+                        logger.error(f"MCP email send error: {mcp_error}")
+                elif action_type == "send_email":
+                    missing = []
+                    if not email_to:
+                        missing.append("recipient (To:)")
+                    if not email_body:
+                        missing.append("email body")
+                    content += f"**Warning:** Cannot send - missing: {', '.join(missing)}\n"
+                    logger.warning(f"Cannot send email - missing: {', '.join(missing)}")
+                else:
+                    content += f"**Note:** Action logged for execution\n"
+                    logger.info(f"Action type {action_type} logged")
+
                 item.write_text(content, encoding='utf-8')
 
                 # Move to Done
@@ -389,8 +489,144 @@ Remember:
             except Exception as e:
                 logger.error(f"Error processing approved item {item.name}: {e}")
 
+    def _send_email_via_mcp(self, to: str, subject: str, body: str) -> Dict:
+        """Send email using direct Gmail API (more reliable than MCP)."""
+        try:
+            # Use direct Gmail API instead of MCP
+            from google.oauth2.credentials import Credentials
+            from googleapiclient.discovery import build
+            from email.mime.text import MIMEText
+            import base64
+            import pickle
+            
+            # Load credentials
+            token_path = self.vault_path.parent / 'token.pickle'
+            if not token_path.exists():
+                return {'success': False, 'error': 'Token file not found'}
+            
+            with open(token_path, 'rb') as f:
+                creds = pickle.load(f)
+            
+            # Build Gmail service
+            service = build('gmail', 'v1', credentials=creds)
+            
+            # Get sender email
+            profile = service.users().getProfile(userId='me').execute()
+            sender_email = profile['emailAddress']
+            
+            # Create message
+            message = MIMEText(body, 'plain')
+            message['to'] = to
+            message['from'] = sender_email
+            message['subject'] = subject
+            
+            # Encode and send
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            sent_message = service.users().messages().send(
+                userId='me', 
+                body={'raw': raw_message}
+            ).execute()
+            
+            logger.info(f"Email sent successfully to {to}, Message ID: {sent_message['id']}")
+            return {
+                'success': True, 
+                'message_id': sent_message['id'],
+                'thread_id': sent_message['threadId']
+            }
+            
+        except Exception as e:
+            logger.error(f"Direct Gmail send error: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def parse_qwen_output(self, output_file: Path) -> Dict:
+        """Parse Qwen's output to extract approval requests and archive decisions."""
+        if not output_file.exists():
+            return {'approvals': [], 'archives': []}
+
+        content = output_file.read_text(encoding='utf-8')
+        result = {'approvals': [], 'archives': [], 'raw_output': content}
+
+        import json
+        import re
+
+        # Try to extract JSON from the output
+        json_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+        json_str = json_match.group(1) if json_match else content
+
+        try:
+            # Parse JSON array
+            decisions = json.loads(json_str)
+            
+            if isinstance(decisions, list):
+                for decision in decisions:
+                    email_file = decision.get('email_file', '')
+                    decision_type = decision.get('decision', '')
+                    reason = decision.get('reason', '')
+                    draft_response = decision.get('draft_response', '')
+
+                    if decision_type == 'approval_required' and draft_response:
+                        # Create approval request content
+                        approval_content = f"""---
+type: approval_request
+action: send_email
+created: {datetime.now().isoformat()}
+status: pending
+priority: high
+source_item: {email_file}
+---
+
+# Approval Required: Send Email Response
+
+## Email Details
+- To: (extract from email file)
+- Subject: Re: (see original email)
+- Reason: Business response requires approval
+
+## Draft Response
+
+{draft_response}
+
+## To Approve
+Move this file to `/Approved/` folder to send this email.
+
+## To Reject
+Move this file to `/Rejected/` folder and add reason.
+
+---
+
+## Processing Notes
+
+_Add notes here_
+"""
+                        result['approvals'].append({
+                            'source': email_file,
+                            'content': approval_content,
+                            'draft_response': draft_response
+                        })
+                    elif decision_type == 'archive':
+                        result['archives'].append({
+                            'source': email_file,
+                            'reason': reason
+                        })
+                    else:
+                        logger.warning(f"Unknown decision type: {decision_type} for {email_file}")
+                        
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON output: {e}")
+            logger.debug(f"Raw output: {content[:500]}...")
+            # Fallback: try to extract any EMAIL_*.md references and archive them
+            archive_pattern = r'EMAIL_\w+\.md'
+            matches = re.findall(archive_pattern, content)
+            for email_file in matches:
+                result['archives'].append({
+                    'source': email_file,
+                    'reason': 'Processed (JSON parse failed, defaulting to archive)'
+                })
+
+        return result
+
     def run_once(self):
-        """Run a single processing cycle with Ralph Wiggum Loop."""
+        """Run a single processing cycle."""
         logger.info("Starting processing cycle")
 
         # Get pending items
@@ -403,61 +639,32 @@ Remember:
         # Update dashboard
         self.update_dashboard(len(pending), len(approved), len(pending_approvals))
 
-        # Process approved items first
+        # Process approved items first (execute MCP actions)
         if approved:
             self.process_approved_items(approved)
 
-        # Ralph Wiggum Loop: Keep triggering Claude until items are in /Done
+        # Process pending emails using Qwen Email Processor (Silver Tier AI reasoning)
         if pending:
-            plan_path = self.create_plan(pending)
-            if plan_path:
-                max_iterations = 5  # Prevent infinite loops
-                iteration = 0
-                original_pending = list(pending)  # Keep track of original items
+            logger.info(f"Processing {len(pending)} email(s) with Qwen Email Processor")
 
-                while iteration < max_iterations:
-                    iteration += 1
-                    logger.info(f"Ralph Wiggum Loop: Iteration {iteration}/{max_iterations}")
+            try:
+                from qwen_email_processor import QwenEmailProcessor
+                processor = QwenEmailProcessor(self.vault_path)
+                results = processor.process_with_qwen()
 
-                    success = self.trigger_claude(plan_path)
+                logger.info(f"Processing results: {results}")
 
-                    if not success:
-                        logger.error("Claude Code failed, stopping loop")
-                        break
-
-                    # Check if items were moved to /Done
-                    still_pending = self.get_pending_items()
-                    completed = [item for item in pending if item.name not in still_pending]
-
-                    if len(completed) == len(pending):
-                        logger.info(f"All {len(pending)} items completed and moved to /Done")
-                        for item in pending:
-                            self.processed_files.add(item.name)
-                        break
-                    elif len(completed) > 0:
-                        logger.info(f"{len(completed)} items completed, {len(pending) - len(completed)} remaining")
-                        pending = still_pending
-                    else:
-                        logger.warning("No items completed in this iteration, retrying...")
-
-                else:
-                    logger.warning(f"Max iterations ({max_iterations}) reached")
-                    # Fallback: If Claude couldn't complete, move files to Done with note
-                    for item in original_pending:
-                        if item.exists():
-                            logger.info(f"Fallback: Moving {item.name} to Done (Claude lacked MCP access)")
-                            content = item.read_text(encoding='utf-8')
-                            content += f"\n\n---\n\n**Note:** Claude Code was triggered but could not process this item automatically.\n"
-                            content += f"**Reason:** MCP servers not configured or action requires manual review.\n"
-                            content += f"**Action Required:** Manual review and processing.\n"
-                            content += f"**Timestamp:** {datetime.now().isoformat()}\n"
-                            item.write_text(content, encoding='utf-8')
-
-                            # Move to Done
-                            dest = self.done_path / item.name
-                            item.rename(dest)
-                            self.processed_files.add(item.name)
-                            logger.info(f"Moved to Done (fallback): {dest.name}")
+            except Exception as e:
+                logger.error(f"Qwen Email Processor failed: {e}")
+                # Fallback: move to In_Progress for manual review
+                for item in pending:
+                    in_progress_file = self.in_progress_path / item.name
+                    content = item.read_text(encoding='utf-8')
+                    content += f"\n\n---\n\n**Error:** {e}\n**Status:** Needs manual review\n"
+                    item.write_text(content, encoding='utf-8')
+                    if in_progress_file != item:
+                        item.rename(in_progress_file)
+                logger.warning(f"Moved {len(pending)} items to In_Progress for manual review")
 
         logger.info("Processing cycle complete")
 
