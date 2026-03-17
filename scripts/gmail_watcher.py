@@ -141,7 +141,7 @@ class GmailWatcher:
             results = self.service.users().messages().list(
                 userId='me',
                 q='is:unread',
-                maxResults=10
+                maxResults=5
             ).execute()
             
             messages = results.get('messages', [])
