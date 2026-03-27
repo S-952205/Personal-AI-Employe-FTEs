@@ -1,21 +1,128 @@
-# Personal AI Employee FTE - Silver Tier
+# Personal AI Employee FTE - Silver Tier ✅
 
 > **Your life and business on autopilot. Local-first, agent-driven, human-in-the-loop.**
 
-This is a **Silver Tier** implementation of a Personal AI Employee - an autonomous agent that works 24/7 to manage your personal and business affairs using **Claude Code** as the reasoning engine and **Obsidian** as the knowledge dashboard.
+A **production-ready Silver Tier** implementation of a Personal AI Employee - an autonomous agent that works 24/7 to manage your personal and business affairs using **Qwen Code** as the reasoning engine and **Obsidian** as the knowledge dashboard.
 
 ---
 
-## 🎯 Silver Tier Deliverables
+## 🎯 What You Get
 
-- ✅ All Bronze requirements plus:
-- ✅ Gmail Watcher - Monitor Gmail for urgent emails
-- ✅ LinkedIn Watcher - Monitor LinkedIn for messages, notifications, connections
-- ✅ Email MCP Server - Send and draft emails via Gmail API
-- ✅ LinkedIn MCP Server - Post updates, send messages, connect with people
-- ✅ Human-in-the-Loop (HITL) approval workflow for sensitive actions
-- ✅ Windows Task Scheduler integration for automated startup
-- ✅ Enhanced Orchestrator with multi-watcher support
+### ✅ Silver Tier - Complete & Verified
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **File System Watcher** | ✅ | Monitors `/Inbox` for new files (instant detection) |
+| **Gmail Watcher** | ✅ | Monitors Gmail for unread emails (every 2 min) |
+| **LinkedIn Watcher** | ✅ | Monitors LinkedIn notifications (every 5 min) |
+| **Email MCP Server** | ✅ | Send/draft emails via Gmail API |
+| **LinkedIn MCP Server** | ✅ | Post updates, send messages, connect |
+| **HITL Workflow** | ✅ | Approval system for sensitive actions |
+| **PM2 Background** | ✅ | 24/7 background processes with auto-restart |
+| **Task Scheduler** | ⏳ | Optional Windows auto-start on boot |
+| **Duplication Fix** | ✅ | No duplicate approvals (fixed 2026-03-27) |
+
+---
+
+## 🚀 Quick Start (5 Minutes)
+
+### **Prerequisites**
+
+| Software | Version | Purpose | Required |
+|----------|---------|---------|----------|
+| [Python](https://www.python.org/downloads/) | 3.13+ | Watcher scripts | ✅ Yes |
+| [Node.js](https://nodejs.org/) | v24+ LTS | MCP servers, PM2 | ✅ Yes |
+| [Obsidian](https://obsidian.md/download) | v1.10.6+ | Knowledge dashboard | ✅ Yes |
+| [Qwen Code](https://claude.com/product/claude-code) | Active | AI reasoning engine | ⏳ Optional* |
+
+*Qwen Code is used for AI processing. System works without it for basic monitoring.
+
+### **Step 1: Install Dependencies**
+
+```bash
+cd C:\Projects\Personal-AI-Employe-FTEs
+
+# Python dependencies
+pip install -r requirements.txt
+
+# Node.js dependencies (MCP servers)
+cd mcp-servers\email-mcp && npm install
+cd ..\linkedin-mcp && npm install
+cd ..\..
+
+# Playwright browsers (for LinkedIn)
+playwright install
+```
+
+### **Step 2: Start with PM2 (Recommended)**
+
+```bash
+# Install PM2 globally
+npm install -g pm2
+
+# Start all AI Employee processes
+pm2 start ecosystem.config.cjs
+
+# Save process list (auto-restart on reboot)
+pm2 save
+
+# Check status
+pm2 status
+```
+
+**Expected Output:**
+```
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ gmail-watcher      │ fork     │ 0    │ online    │ 0%       │ 50mb     │
+│ 1  │ linkedin-watcher   │ fork     │ 0    │ online    │ 0%       │ 30mb     │
+│ 2  │ filesystem-watcher │ fork     │ 0    │ online    │ 0%       │ 20mb     │
+│ 3  │ orchestrator       │ fork     │ 0    │ online    │ 0%       │ 40mb     │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+```
+
+✅ **Done! Your AI Employee is now working 24/7 in the background.**
+
+---
+
+## 📖 Essential Commands
+
+### **Daily Management**
+
+```bash
+# Check if running
+pm2 status
+
+# View live logs
+pm2 logs
+
+# View specific process logs
+pm2 logs gmail-watcher
+pm2 logs orchestrator
+
+# Restart everything
+pm2 restart all
+
+# Stop everything
+pm2 stop all
+
+# Start everything
+pm2 start all
+```
+
+### **Manual Scripts (Alternative to PM2)**
+
+```bash
+# Start all watchers (opens 3 terminal windows)
+scripts\start-all.bat
+
+# Individual watchers
+python scripts\filesystem_watcher.py
+python scripts\gmail_watcher.py    # Requires credentials
+python scripts\linkedin_watcher.py
+python scripts\orchestrator.py
+```
 
 ---
 
@@ -23,213 +130,78 @@ This is a **Silver Tier** implementation of a Personal AI Employee - an autonomo
 
 ```
 Personal-AI-Employe-FTEs/
-├── personal-ai-employee/   # 📖 Open THIS folder in Obsidian
-│   ├── Dashboard.md
-│   ├── Company_Handbook.md
-│   ├── Business_Goals.md
-│   ├── Inbox/
-│   ├── Needs_Action/
-│   ├── Done/
-│   ├── Plans/
-│   ├── Approved/
-│   ├── Rejected/
-│   ├── Pending_Approval/
-│   ├── In_Progress/
-│   ├── Accounting/
-│   └── Briefings/
 │
-├── scripts/                # 🔧 Python scripts
-│   ├── filesystem_watcher.py
-│   ├── gmail_watcher.py       # NEW: Silver Tier
-│   ├── linkedin_watcher.py    # NEW: Silver Tier
-│   ├── orchestrator.py
-│   ├── gmail_auth.py          # NEW: Gmail authentication
-│   ├── start-all.bat          # NEW: Start all watchers
-│   ├── setup-tasks.bat        # NEW: Windows Task Scheduler setup
-│   ├── test_silver.py         # NEW: Silver tier verification
-│   └── test_bronze.py
+├── personal-ai-employee/       # 📖 Open THIS in Obsidian
+│   ├── Dashboard.md            # Real-time status dashboard
+│   ├── Company_Handbook.md     # Rules & guidelines
+│   ├── Business_Goals.md       # Your business objectives
+│   ├── Inbox/                  # Drop files here
+│   ├── Needs_Action/           # Items awaiting processing
+│   ├── Pending_Approval/       # Awaiting your approval
+│   ├── Approved/               # Approved, ready to execute
+│   ├── Rejected/               # Rejected items
+│   ├── Done/                   # Completed items
+│   ├── Plans/                  # AI-generated plans
+│   ├── In_Progress/            # Currently processing
+│   ├── Accounting/             # Financial records
+│   └── Briefings/              # CEO briefings
 │
-├── mcp-servers/              # 🤖 MCP Servers (NEW: Silver Tier)
-│   ├── email-mcp/
-│   │   ├── package.json
-│   │   └── index.js
-│   └── linkedin-mcp/
-│       ├── package.json
-│       └── index.js
+├── scripts/                    # 🔧 Python Scripts
+│   ├── filesystem_watcher.py   # Monitors Inbox folder
+│   ├── gmail_watcher.py        # Monitors Gmail
+│   ├── linkedin_watcher.py     # Monitors LinkedIn
+│   ├── orchestrator.py         # Main coordinator
+│   ├── qwen_email_processor.py # AI email processing
+│   ├── linkedin_post.py        # Manual LinkedIn posting
+│   ├── gmail_auth.py           # Gmail OAuth setup
+│   ├── setup-pm2.bat           # PM2 setup script
+│   ├── setup-tasks.bat         # Task Scheduler setup
+│   ├── pm2-manage.bat          # PM2 management helper
+│   └── start-all.bat           # Start all watchers
 │
-├── logs/                     # 📝 System logs
-├── requirements.txt
-├── mcp-config.json           # NEW: MCP configuration
-└── README.md
+├── mcp-servers/                # 🤖 MCP Servers
+│   ├── email-mcp/              # Gmail operations
+│   │   ├── index.js
+│   │   └── package.json
+│   └── linkedin-mcp/           # LinkedIn operations
+│       ├── index.js
+│       └── package.json
+│
+├── .qwen/skills/               # 🧠 Qwen Agent Skills
+│   ├── browsing-with-playwright
+│   ├── email-operations
+│   ├── linkedin-operations
+│   └── hitl-approval
+│
+├── logs/                       # 📝 System logs
+├── ecosystem.config.cjs        # PM2 configuration
+├── requirements.txt            # Python dependencies
+├── mcp-config.json             # MCP server config
+└── skills-lock.json            # Skill version tracking
 ```
 
-**📖 Open `personal-ai-employee/` folder in Obsidian** - This dedicated vault contains only the Markdown files and working folders.
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-| Software | Version | Purpose |
-|----------|---------|---------|
-| [Claude Code](https://claude.com/product/claude-code) | Active subscription | Primary reasoning engine |
-| [Obsidian](https://obsidian.md/download) | v1.10.6+ | Knowledge base & dashboard |
-| [Python](https://www.python.org/downloads/) | 3.13+ | Watcher scripts |
-| [Node.js](https://nodejs.org/) | v24+ LTS | MCP servers |
-
-### Installation
-
-#### Step 1: Install Python Dependencies
-
-```bash
-cd Personal-AI-Employe-FTEs
-pip install -r requirements.txt
-```
-
-#### Step 2: Install Node.js Dependencies (for MCP servers)
-
-```bash
-# Email MCP Server
-cd mcp-servers/email-mcp
-npm install
-
-# LinkedIn MCP Server
-cd ../linkedin-mcp
-npm install
-```
-
-#### Step 3: Install Playwright Browsers
-
-```bash
-playwright install
-```
-
-#### Step 4: Verify Installation
-
-```bash
-python scripts/test_silver.py
-```
-
-This will check all components and report any missing dependencies.
-
----
-
-## 📖 Usage
-
-### Option 1: Manual Start (Recommended for Testing)
-
-Start all watchers and orchestrator:
-
-```bash
-scripts/start-all.bat
-```
-
-This opens three terminal windows:
-- **Gmail Watcher** - Checks every 2 minutes
-- **LinkedIn Watcher** - Checks every 5 minutes  
-- **Orchestrator** - Processes every 30 seconds
-
-### Option 2: Windows Task Scheduler (Auto-start on Boot)
-
-Run as Administrator:
-
-```bash
-scripts/setup-tasks.bat
-```
-
-This creates scheduled tasks that start automatically when Windows boots.
-
-### Option 3: Individual Watchers
-
-Start specific watchers:
-
-```bash
-# File System Watcher only
-python scripts/filesystem_watcher.py
-
-# Gmail Watcher only (requires credentials)
-python scripts/gmail_watcher.py
-
-# LinkedIn Watcher only
-python scripts/linkedin_watcher.py
-
-# Orchestrator only
-python scripts/orchestrator.py
-```
-
----
-
-## 🔧 Gmail Setup (Optional)
-
-To enable Gmail monitoring:
-
-### Step 1: Get Gmail Credentials
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Create or select a project
-3. Enable Gmail API
-4. Create OAuth 2.0 Client ID credentials
-5. Download the `credentials.json` file
-6. Place it in the project root: `Personal-AI-Employe-FTEs/credentials.json`
-
-### Step 2: Authenticate
-
-```bash
-python scripts/gmail_auth.py
-```
-
-Follow the prompts to authorize. A `token.pickle` file will be created for future use.
-
-### Step 3: Start Gmail Watcher
-
-```bash
-python scripts/gmail_watcher.py
-```
-
----
-
-## 🔗 LinkedIn Setup (Optional)
-
-LinkedIn watcher uses browser automation with persistent sessions.
-
-### First Run Setup
-
-1. Start the LinkedIn watcher:
-   ```bash
-   python scripts/linkedin_watcher.py
-   ```
-
-2. On first run, manually log in to LinkedIn in the browser window that opens
-
-3. The session is saved to `linkedin_session/` folder for future runs
-
-### Notes
-
-- ⚠️ **Be aware of LinkedIn's Terms of Service** - Use responsibly
-- ⚠️ The watcher runs in headless mode by default
-- ⚠️ Session cookies are stored locally for persistent login
+**📖 Open `personal-ai-employee/` folder in Obsidian** for your knowledge dashboard.
 
 ---
 
 ## 🎬 How It Works
 
-### Architecture Overview
+### **Architecture Overview**
 
 ```
 ┌─────────────────┐     ┌─────────────────┐
 │   Gmail         │────▶│   Gmail         │
-│   (External)    │     │   Watcher       │
+│   (External)    │     │   Watcher       │  ✅ Running
 └─────────────────┘     └────────┬────────┘
                                  │
 ┌─────────────────┐     ┌────────▼────────┐
 │   LinkedIn      │────▶│   LinkedIn      │
-│   (External)    │     │   Watcher       │
+│   (External)    │     │   Watcher       │  ✅ Running
 └─────────────────┘     └────────┬────────┘
                                  │
 ┌─────────────────┐     ┌────────▼────────┐
 │   File Drop     │────▶│   File System   │
-│   (Inbox)       │     │   Watcher       │
+│   (Inbox)       │     │   Watcher       │  ✅ Running
 └─────────────────┘     └────────┬────────┘
                                  │
                     ┌────────────▼────────────┐
@@ -239,11 +211,11 @@ LinkedIn watcher uses browser automation with persistent sessions.
                                  │
                     ┌────────────▼────────────┐
                     │    Orchestrator         │
-                    │    (Creates Plans)      │
+                    │    (Processes 30s)      │  ✅ Running
                     └────────────┬────────────┘
                                  │
                     ┌────────────▼────────────┐
-                    │    Claude Code          │
+                    │    Qwen Code AI         │
                     │    (Processing)         │
                     └────────────┬────────────┘
                                  │
@@ -255,88 +227,175 @@ LinkedIn watcher uses browser automation with persistent sessions.
 └───────────────────┘  └───────────────────┘  └─────────────────┘
 ```
 
-### Processing Flow
+### **Processing Flow**
 
-1. **Input Sources:**
-   - File dropped in `/Inbox`
-   - New Gmail received
-   - LinkedIn notification/message
+1. **Input Detection** (Watchers)
+   - Gmail: New unread email
+   - LinkedIn: New notification/message
+   - File System: File dropped in `/Inbox`
 
-2. **Detection:** Watchers create action files in `/Needs_Action`
+2. **Action File Creation**
+   - Creates `EMAIL_*.md`, `LINKEDIN_*.md`, or `FILE_*.md`
+   - Saved in `/Needs_Action/` folder
 
-3. **Planning:** Orchestrator creates plan in `/Plans`
+3. **AI Processing** (Orchestrator + Qwen)
+   - Runs every 30 seconds
+   - Reads action files
+   - Applies Company Handbook rules
+   - Classifies and drafts responses
 
-4. **Processing:** Claude Code reads plan + handbook + business goals
+4. **Human-in-the-Loop Decision**
+   - **Normal actions**: Auto-process
+   - **Sensitive actions**: Create approval request in `/Pending_Approval/`
 
-5. **HITL Decision:**
-   - Normal action → Execute directly
-   - Sensitive action → Create approval request in `/Pending_Approval/`
+5. **Human Review** (You)
+   - Review `/Pending_Approval/` files
+   - **Approve**: Move to `/Approved/` → Auto-executes
+   - **Reject**: Move to `/Rejected/` → Add reason
 
-6. **Human Approval:**
-   - User reviews `/Pending_Approval/` files
-   - Move to `/Approved/` to execute
-   - Move to `/Rejected/` to discard
-
-7. **Output:** Item moved to `/Done` with processing notes
+6. **Execution & Logging**
+   - Execute approved actions via MCP servers
+   - Move completed items to `/Done/`
+   - Full audit trail maintained
 
 ---
 
 ## 🛡️ Human-in-the-Loop (HITL) Workflow
 
-### When Approval is Required
+### **When Approval is Required**
 
-Per `Company_Handbook.md`, approval is required for:
+Per `Company_Handbook.md`:
 
-| Action Type | Threshold |
-|-------------|-----------|
-| Payments | > $50 |
-| Emails to new contacts | Always |
-| LinkedIn posts | Always (draft only) |
-| Connection requests to VIPs | Always |
-| Subscription cancellations | Always |
+| Action Type | Approval Required? |
+|-------------|-------------------|
+| Email responses | ✅ Always |
+| LinkedIn posts | ✅ Always (draft only) |
+| Payments > $50 | ✅ Always |
+| Connection requests to VIPs | ✅ Always |
+| Subscription cancellations | ✅ Always |
+| Promotional emails | ❌ No (auto-archive) |
 
-### Approval Process
+### **Approval Process**
 
-1. **Claude creates approval request:**
+1. **AI creates approval request:**
    ```
-   /Pending_Approval/APPROVAL_email_20260310_143022.md
+   /Pending_Approval/APPROVAL_email_20260327_210000.md
    ```
 
-2. **User reviews the file** (in Obsidian or file explorer)
+2. **You review** (in Obsidian or file explorer)
 
-3. **User decides:**
-   - ✅ **Approve:** Move to `/Approved/` → Auto-executes
+3. **You decide:**
+   - ✅ **Approve:** Move to `/Approved/` → Auto-executes within 30 seconds
    - ❌ **Reject:** Move to `/Rejected/` → Add reason
-   - ✏️ **Modify:** Edit file → Move to `/Approved/`
+   - ✏️ **Modify:** Edit draft → Move to `/Approved/`
+
+---
+
+## 🔧 Optional Setup
+
+### **Gmail Integration** (Optional)
+
+#### Step 1: Get Gmail Credentials
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Create OAuth 2.0 Client ID credentials
+3. Download `credentials.json`
+4. Place in project root: `C:\Projects\Personal-AI-Employe-FTEs\credentials.json`
+
+#### Step 2: Authenticate
+
+```bash
+python scripts\gmail_auth.py
+```
+
+Follow prompts to authorize. Token saved to `token.pickle`.
+
+#### Step 3: Restart Gmail Watcher
+
+```bash
+pm2 restart gmail-watcher
+```
+
+---
+
+### **LinkedIn Integration** (Optional)
+
+#### First Run Setup
+
+```bash
+python scripts\linkedin_login.py
+```
+
+1. Browser opens
+2. Log in to LinkedIn manually
+3. Session saved to `linkedin_session/`
+4. Close browser
+
+#### Start LinkedIn Watcher
+
+```bash
+pm2 restart linkedin-watcher
+```
+
+**⚠️ Note:** Be aware of LinkedIn's Terms of Service. Use responsibly.
+
+---
+
+### **Windows Task Scheduler** (Optional - Auto-Start on Boot)
+
+**Alternative to PM2.** Run as Administrator:
+
+```batch
+cd C:\Projects\Personal-AI-Employe-FTEs
+scripts\setup-tasks.bat
+```
+
+Creates 3 scheduled tasks:
+- `AI_Employee_Gmail_Watcher`
+- `AI_Employee_LinkedIn_Watcher`
+- `AI_Employee_Orchestrator`
+
+**⚠️ Important:** Use **either PM2 OR Task Scheduler, not both** (creates conflicts).
 
 ---
 
 ## 📋 Configuration
 
-### Company Handbook
+### **Company Handbook** (`Company_Handbook.md`)
 
-Edit `Company_Handbook.md` to customize:
-
-- Communication rules (email, LinkedIn)
-- Financial rules (payment thresholds, invoicing)
+Customize rules for:
+- Communication guidelines (email, LinkedIn)
+- Financial thresholds (payment approvals)
 - Task priority classifications
 - VIP contacts and known clients
+- Subscription audit rules
 
-### Business Goals
+### **Business Goals** (`Business_Goals.md`)
 
-Edit `Business_Goals.md` to set:
-
+Set your:
 - Revenue targets
 - Key metrics and alert thresholds
-- Active projects
+- Active projects and deadlines
 - Subscription patterns to detect
 
-### MCP Configuration
+### **MCP Configuration** (`mcp-config.json`)
 
-Edit `mcp-config.json` to configure MCP servers:
+Configure MCP servers:
 
 ```json
 {
+  "servers": {
+    "email": {
+      "command": "node",
+      "args": ["mcp-servers/email-mcp/index.js"],
+      "disabled": false
+    },
+    "linkedin": {
+      "command": "node",
+      "args": ["mcp-servers/linkedin-mcp/index.js"],
+      "disabled": false
+    }
+  },
   "settings": {
     "email": {
       "require_approval_for_send": true,
@@ -352,75 +411,118 @@ Edit `mcp-config.json` to configure MCP servers:
 
 ---
 
-## 🔧 Troubleshooting
+## 🔍 Daily Usage
 
-### Gmail Watcher Issues
-
-| Issue | Solution |
-|-------|----------|
-| credentials.json not found | Download from Google Cloud Console |
-| Authentication failed | Run `python scripts/gmail_auth.py` |
-| No new emails detected | Check Gmail API scopes in auth |
-
-### LinkedIn Watcher Issues
-
-| Issue | Solution |
-|-------|----------|
-| Not logged in | Manually log in on first run |
-| Session expired | Delete `linkedin_session/` and re-authenticate |
-| Element not found | LinkedIn may have changed UI - update selectors |
-
-### Orchestrator Issues
-
-| Issue | Solution |
-|-------|----------|
-| Claude Code not found | Add to PATH or check subscription |
-| Files not moving to Done | Check file permissions |
-| Approval not triggering | Check `/Pending_Approval/` folder |
-
-### View Logs
+### **Morning Check (30 seconds)**
 
 ```bash
-# Watch all logs
-cd logs
+# 1. Check status
+pm2 status
 
-# Gmail watcher
-type gmail_watcher.log
+# 2. Check for approvals
+dir personal-ai-employee\Pending_Approval
 
-# LinkedIn watcher
-type linkedin_watcher.log
-
-# Orchestrator
-type orchestrator.log
+# 3. Quick log review
+pm2 logs --lines 20
 ```
+
+### **Evening Check (1 minute)**
+
+```bash
+# Check what was processed today
+dir personal-ai-employee\Done
+```
+
+### **Test the System**
+
+Drop a test file:
+1. Create text file: `personal-ai-employee\Inbox\test.txt`
+2. Wait 10 seconds
+3. Check logs: `pm2 logs filesystem-watcher`
+4. Should see: "New file detected: test.txt"
 
 ---
 
-## 📈 Silver Tier Features Summary
+## 🔧 Troubleshooting
 
-| Feature | Status | Description |
-|---------|--------|-------------|
-| File System Watcher | ✅ | Monitors `/Inbox` for new files |
-| Gmail Watcher | ✅ | Monitors Gmail for unread emails |
-| LinkedIn Watcher | ✅ | Monitors LinkedIn notifications/messages |
-| Email MCP Server | ✅ | Send/draft emails via Gmail API |
-| LinkedIn MCP Server | ✅ | Post updates, send messages, connect |
-| HITL Workflow | ✅ | Approval system for sensitive actions |
-| Windows Scheduler | ✅ | Auto-start on boot |
-| Ralph Wiggum Loop | ✅ | Autonomous multi-step processing |
+### **PM2 Issues**
+
+| Problem | Solution |
+|---------|----------|
+| Processes show "errored" | `pm2 restart all` |
+| Can't find PM2 | `npm install -g pm2` |
+| Want to view errors | `pm2 logs --err` |
+| Need fresh start | `pm2 delete all && pm2 start ecosystem.config.cjs` |
+
+### **Gmail Watcher Issues**
+
+| Problem | Solution |
+|---------|----------|
+| `credentials.json` not found | Download from Google Cloud Console |
+| Authentication failed | Run `python scripts\gmail_auth.py` |
+| No emails detected | Check if emails are unread |
+| Duplicate detection | Check `.gmail_processed_ids.json` exists |
+
+### **LinkedIn Watcher Issues**
+
+| Problem | Solution |
+|---------|----------|
+| Not logged in | Run `python scripts\linkedin_login.py` |
+| Session expired | Delete `linkedin_session/` and re-login |
+| Element not found | LinkedIn UI changed - update selectors |
+
+### **Orchestrator Issues**
+
+| Problem | Solution |
+|---------|----------|
+| Not processing | Check logs: `pm2 logs orchestrator` |
+| Duplicate approvals | Already fixed! Restart orchestrator |
+| Files not moving | Check folder permissions |
+
+---
+
+## 📚 Documentation
+
+| File | Purpose |
+|------|---------|
+| **`README.md`** | This file - Project overview |
+| **`QUICK_START_GUIDE.md`** | Daily usage reference |
+| **`SETUP_COMPLETE.md`** | Setup summary |
+| **`SILVER_TIER_VERIFICATION.md`** | Complete technical verification |
+| **`HITL_WORKFLOW.md`** | Approval system details |
+| **`Personal AI Employee Hackathon 0_...md`** | Full architectural blueprint |
+| **`GMAIL_TESTING_GUIDE.md`** | Gmail setup guide |
+| **`LINKEDIN_SETUP.md`** | LinkedIn configuration |
 
 ---
 
 ## 🚀 Next Steps (Gold Tier)
 
-To upgrade to Gold Tier, add:
+Upgrade to Gold Tier:
 
-1. **Odoo Accounting Integration** - Self-hosted accounting via MCP
-2. **Facebook/Instagram Integration** - Social media posting
-3. **Twitter (X) Integration** - Tweet scheduling
-4. **Weekly CEO Briefing** - Automated business audit
-5. **Cloud Deployment** - 24/7 always-on operation
-6. **Multi-Agent A2A** - Agent-to-agent communication
+1. **Odoo Accounting Integration**
+   - Self-host Odoo Community
+   - Build MCP server for invoices/payments
+   - Weekly accounting audit
+
+2. **CEO Briefing Generator**
+   - Weekly business summary
+   - Revenue tracking
+   - Bottleneck identification
+
+3. **Social Media Expansion**
+   - Facebook/Instagram MCP
+   - Twitter (X) integration
+
+4. **Cloud Deployment**
+   - Deploy to Oracle/AWS VM
+   - 24/7 always-on operation
+   - Health monitoring
+
+5. **Multi-Agent A2A**
+   - Agent-to-agent communication
+   - Domain specialization
+   - Cloud + Local split
 
 ---
 
@@ -439,14 +541,19 @@ Join the Wednesday Research Meeting:
 
 ---
 
-## 📚 Resources
+## 📞 Support Resources
 
-- [Claude Code Documentation](https://claude.com/product/claude-code)
+- [Qwen Code Documentation](https://claude.com/product/claude-code)
 - [MCP Protocol](https://modelcontextprotocol.io/)
 - [Gmail API](https://developers.google.com/gmail/api)
 - [Playwright Documentation](https://playwright.dev/)
+- [PM2 Documentation](https://pm2.keymetrics.io/)
 - [Obsidian Help](https://help.obsidian.md/)
 
 ---
+
+**Last Updated:** 2026-03-27  
+**Version:** Silver Tier v1.0 (Production Ready ✅)  
+**Status:** Fully Operational - 4 PM2 processes running 24/7
 
 *Built with ❤️ for the Personal AI Employee Hackathon 2026*
