@@ -378,8 +378,16 @@ _Add notes here_
         logger.info("Qwen Email Processor - Starting")
         logger.info("="*60)
 
-        # Get pending emails
-        emails = list(self.needs_action.glob('EMAIL_*.md'))
+        # Get pending emails (skip already processed)
+        emails = []
+        for email_file in self.needs_action.glob('EMAIL_*.md'):
+            content = email_file.read_text(encoding='utf-8')
+            # Skip if already processed (has approval request or archived status)
+            if '**Status:** Approval request created' in content or '**Status:** Archived' in content:
+                logger.info(f"Skipping already processed: {email_file.name}")
+                continue
+            emails.append(email_file)
+
         if not emails:
             logger.info("No emails to process")
             return {'approval': 0, 'archived': 0, 'error': 0}

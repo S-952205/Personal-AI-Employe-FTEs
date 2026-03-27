@@ -11,9 +11,9 @@ tier: silver
 
 | Metric | Value | Status |
 |--------|-------|--------|
-| Pending Actions | 2 | ⚠️ Pending |
+| Pending Actions | 0 | ✅ Clear |
 | Active Plans | 0 | ✅ None |
-| Pending Approvals | 7 | ⏳ Awaiting Review |
+| Pending Approvals | 0 | ✅ None |
 | Last Processed | 2026-03-10 00:00:00 | ⏳ Awaiting first run |
 
 ---

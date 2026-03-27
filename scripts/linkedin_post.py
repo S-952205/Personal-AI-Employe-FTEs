@@ -9,11 +9,16 @@ Flow:
 5. Result shown in terminal
 
 Uses Qwen Code for reasoning and content generation.
+
+Usage:
+  python scripts/linkedin_post.py           # Interactive mode (asks for confirmation)
+  python scripts/linkedin_post.py --auto    # Auto mode (posts without confirmation)
 """
 
 import time
 import logging
 import json
+import sys
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -174,195 +179,274 @@ _Will be filled after posting_
                 print("✓ Logged in successfully")
                 print()
                 
-                # Find and click the "Start a post" button
+                # Open post creation dialog - use direct URL (most reliable)
                 print("Opening post creation dialog...")
                 
-                # Try multiple selectors for the post button
-                post_button_selectors = [
-                    'button:has-text("Start a post")',
-                    'button:has-text("Start a Post")',
-                    'div[role="button"]:has-text("Start a post")',
-                    '.share-box-feed-entry__trigger',
-                ]
+                # Go directly to LinkedIn post creation URL
+                page.goto('https://www.linkedin.com/feed/?shareActive=true', wait_until='networkidle')
+                page.wait_for_timeout(3000)
                 
-                post_button = None
-                for selector in post_button_selectors:
+                # Wait for dialog to appear
+                print("Waiting for dialog to open...")
+                dialog_ready = False
+                
+                for i in range(15):
                     try:
-                        post_button = page.locator(selector).first
-                        if post_button.is_visible(timeout=3000):
+                        dialog = page.locator('[role="dialog"]').first
+                        if dialog.is_visible(timeout=1000):
+                            dialog_ready = True
+                            print("✓ Dialog is ready")
                             break
-                        post_button = None
                     except:
-                        continue
+                        pass
+                    page.wait_for_timeout(500)
                 
-                if post_button:
-                    post_button.click()
-                    page.wait_for_timeout(3000)
-                    print("✓ Post dialog opened")
-                else:
-                    print("⚠ Could not find post button, trying alternative method...")
-                    # Navigate directly to post creation
-                    page.goto('https://www.linkedin.com/feed/?shareActive=true', wait_until='networkidle')
-                    page.wait_for_timeout(3000)
+                if not dialog_ready:
+                    print("⚠ Dialog not detected, trying one more time...")
+                    page.reload(wait_until='networkidle')
+                    page.wait_for_timeout(5000)
+                    
+                    try:
+                        dialog = page.locator('[role="dialog"]').first
+                        if dialog.is_visible(timeout=3000):
+                            dialog_ready = True
+                            print("✓ Dialog found after refresh")
+                    except:
+                        pass
+                    
+                    if not dialog_ready:
+                        print("✗ Could not open post dialog")
+                        print("  Current URL:", page.url)
+                        browser.close()
+                        return False
                 
                 # Find the text editor and fill content
                 print("Entering post content...")
-                
-                # Find editor (LinkedIn uses a contenteditable div)
-                editor_selectors = [
-                    'div[contenteditable="true"]',
-                    'div.ProseMirror',
-                    '.editor[contenteditable]',
-                ]
-                
-                editor = None
-                for selector in editor_selectors:
-                    try:
-                        editor = page.locator(selector).first
-                        if editor.is_visible(timeout=3000):
-                            break
-                        editor = None
-                    except:
-                        continue
-                
-                if editor:
-                    # Clear and fill
-                    editor.click()
-                    page.wait_for_timeout(1000)
-                    
-                    # Use keyboard to paste content (more reliable)
-                    page.keyboard.press('Control+A')
-                    page.keyboard.press('Delete')
-                    page.wait_for_timeout(500)
-                    
-                    # Type content in chunks
-                    for line in content.split('\n'):
-                        page.keyboard.type(line)
-                        page.keyboard.press('Enter')
-                        page.wait_for_timeout(100)
-                    
-                    print("✓ Content entered")
-                else:
-                    print("⚠ Could not find editor, content ready for manual paste")
-                    print()
-                    print("Please copy-paste this content:")
-                    print("-" * 70)
-                    print(content)
-                    print("-" * 70)
-                
-                # Wait a moment for content to render
-                print()
-                print("Waiting 5 seconds for content to render...")
-                time.sleep(5)
 
-                # Find and click the Post button
-                print("Looking for Post button...")
-                
+                # Define Post button selectors early (used in editor wait loop)
                 post_button_selectors = [
                     'button:has-text("Post")',
                     'button:has-text("POST")',
                     'button[data-control-name="compose-submit"]',
                     '.share-box-actions button:first-child',
+                    'button.artdeco-button.artdeco-button--primary:not([disabled])',
+                    '[aria-label="Post"]',
                 ]
+
+                # Find editor (LinkedIn uses a contenteditable div inside dialog)
+                # Optimized: 2 attempts with best selectors first
+                editor = None
+                editor_selectors = [
+                    'div[role="dialog"] div[contenteditable="true"]',  # Most specific - inside dialog
+                    'div.share-box-feed-entry__editor-box div[contenteditable="true"]',  # LinkedIn specific
+                    'div[contenteditable="true"]',  # Generic fallback
+                ]
+
+                print("Looking for editor...")
+                for attempt in range(2):
+                    for selector in editor_selectors:
+                        try:
+                            editor = page.locator(selector).first
+                            if editor.is_visible(timeout=1500):
+                                print(f"✓ Found editor: {selector}")
+                                break
+                            editor = None
+                        except Exception as e:
+                            logger.debug(f"Selector {selector} failed: {e}")
+                            continue
+                    if editor:
+                        break
+                    print(f"  Attempt {attempt + 1}/2...")
+                    page.wait_for_timeout(1000)
+                
+                # If still not found, use JavaScript wait
+                if not editor:
+                    print("  Waiting for editor to load...")
+                    try:
+                        page.wait_for_selector('div[contenteditable="true"]', timeout=5000, state='visible')
+                        editor = page.locator('div[contenteditable="true"]').first
+                        print("✓ Found editor after waiting")
+                    except:
+                        print("⚠ Editor not found")
+
+                content_entered = False
+
+                if editor:
+                    try:
+                        # Method 1: JavaScript injection (fastest & most reliable)
+                        print("Entering content via JavaScript...")
+                        
+                        # Escape content for JavaScript
+                        escaped_content = content.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '')
+
+                        js_code = f"""
+                        () => {{
+                            const editors = document.querySelectorAll('div[contenteditable="true"]');
+                            if (editors.length > 0) {{
+                                const editor = editors[0];
+                                editor.focus();
+                                editor.innerText = "{escaped_content}";
+                                editor.dispatchEvent(new InputEvent('input', {{ bubbles: true }}));
+                                return true;
+                            }}
+                            return false;
+                        }}
+                        """
+
+                        result = page.evaluate(js_code)
+                        if result:
+                            print("✓ Content entered")
+                            content_entered = True
+                            page.wait_for_timeout(1000)  # Let LinkedIn process
+                        else:
+                            print("⚠ JavaScript injection failed")
+                            
+                    except Exception as e:
+                        print(f"⚠ JavaScript failed: {e}")
+                        print("Trying keyboard input...")
+                        
+                        # Method 2: Keyboard input (fallback)
+                        try:
+                            page.bring_to_front()
+                            editor.click()
+                            page.wait_for_timeout(500)
+                            page.keyboard.press('Control+A')
+                            page.keyboard.press('Delete')
+                            
+                            for line in content.split('\n'):
+                                page.keyboard.type(line)
+                                page.keyboard.press('Enter')
+                                page.wait_for_timeout(50)
+                            
+                            print("✓ Content entered via keyboard")
+                            content_entered = True
+                        except Exception as ke:
+                            print(f"⚠ Keyboard also failed: {ke}")
+
+                # Final fallback: manual paste
+                if not content_entered:
+                    print()
+                    print("=" * 70)
+                    print("MANUAL ACTION REQUIRED")
+                    print("=" * 70)
+                    print()
+                    print("Please copy-paste this content into LinkedIn:")
+                    print("-" * 70)
+                    print(content)
+                    print("-" * 70)
+                    print()
+                    print("Waiting 30 seconds for you to paste...")
+                    
+                    for i in range(6):  # 6 * 5 = 30 seconds
+                        time.sleep(5)
+                        for selector in post_button_selectors:
+                            try:
+                                btn = page.locator(selector).first
+                                if not btn.get_attribute('disabled'):
+                                    print("✓ Content detected!")
+                                    content_entered = True
+                                    break
+                            except:
+                                pass
+                        if content_entered:
+                            break
+                        print(f"  Waiting... ({(i+1)*5}/30s)")
+
+                # Wait for content to render and Post button to enable
+                print()
+                print("Waiting for Post button to enable...")
+                
+                # Check if Post button is already enabled
+                post_enabled = False
+                for i in range(10):  # 10 * 500ms = 5 seconds max
+                    for selector in post_button_selectors:
+                        try:
+                            btn = page.locator(selector).first
+                            if not btn.get_attribute('disabled'):
+                                print("✓ Post button is enabled")
+                                post_enabled = True
+                                break
+                        except:
+                            pass
+                    if post_enabled:
+                        break
+                    page.wait_for_timeout(500)
+                
+                # Click Post button
+                print("Clicking Post button...")
                 
                 post_btn = None
                 for selector in post_button_selectors:
                     try:
                         post_btn = page.locator(selector).first
-                        if post_btn.is_visible(timeout=3000):
-                            print(f"✓ Found Post button with selector: {selector}")
+                        if post_btn.is_visible(timeout=1000):
+                            print(f"✓ Found Post button")
                             break
                         post_btn = None
                     except:
                         continue
-                
+
                 if post_btn:
-                    print("Clicking first 'Post' button (opens settings)...")
                     post_btn.click()
-                    page.wait_for_timeout(5000)
-                    print("✓ Post settings dialog should be open now")
-                    
-                    # Wait for settings dialog to appear
-                    page.wait_for_timeout(3000)
-                    
-                    # Check for audience selector and select "Anyone"
-                    print("Selecting 'Anyone' audience...")
-                    try:
-                        # Click on "Anyone" option
-                        anyone_option = page.locator('text="Anyone"').first
-                        if anyone_option.is_visible(timeout=3000):
-                            print("Found 'Anyone' option, clicking...")
-                            anyone_option.click()
-                            page.wait_for_timeout(2000)
-                            print("✓ 'Anyone' selected")
-                        else:
-                            print("⚠ 'Anyone' option not found, may already be selected")
-                    except Exception as e:
-                        logger.debug(f"Audience selection issue: {e}")
-                    
-                    # Click Done button to return to editor
-                    print("Clicking 'Done' button...")
-                    try:
-                        done_btn = page.locator('button:has-text("Done")').first
-                        if done_btn.is_visible(timeout=3000):
-                            # Check if enabled (blue button)
-                            is_disabled = done_btn.get_attribute('disabled')
-                            if is_disabled:
-                                print("⚠ Done button is disabled, waiting...")
-                                page.wait_for_timeout(3000)
-                            
-                            done_btn.click()
-                            page.wait_for_timeout(3000)
-                            print("✓ Done button clicked - back to editor")
-                        else:
-                            print("⚠ Done button not found")
-                    except Exception as e:
-                        logger.debug(f"Done button issue: {e}")
-                    
-                    # Wait for settings dialog to close
                     page.wait_for_timeout(2000)
                     
-                    # NOW click the final Post button (this actually submits the post)
-                    print("Clicking FINAL 'Post' button to submit...")
+                    # Check if dialog opened (LinkedIn shows audience selector first)
+                    dialog_open = False
+                    try:
+                        dialog = page.locator('[role="dialog"]').last
+                        if dialog.is_visible(timeout=1500):
+                            dialog_open = True
+                            print("✓ Audience dialog opened")
+                    except:
+                        pass
                     
-                    final_post_btn = None
-                    for selector in post_button_selectors:
+                    if dialog_open:
+                        # Click "Anyone" if needed
                         try:
-                            final_post_btn = page.locator(selector).first
-                            if final_post_btn.is_visible(timeout=3000):
-                                print(f"✓ Found final Post button: {selector}")
-                                final_post_btn.click()
-                                print("✓ FINAL POST BUTTON CLICKED!")
-                                break
-                            final_post_btn = None
+                            anyone_btn = page.locator('button:has-text("Anyone")').first
+                            if anyone_btn.is_visible(timeout=1000):
+                                anyone_btn.click()
+                                page.wait_for_timeout(1000)
                         except:
-                            continue
-                    
-                    if not final_post_btn:
-                        print("⚠ Could not find final Post button")
-                        print("The post may have been submitted already or needs manual completion")
+                            pass
+                        
+                        # Click Done
+                        try:
+                            done_btn = page.locator('button:has-text("Done")').first
+                            if done_btn.is_visible(timeout=1000):
+                                done_btn.click()
+                                page.wait_for_timeout(2000)
+                        except:
+                            pass
+                        
+                        # Click Post again to submit
+                        for selector in post_button_selectors:
+                            try:
+                                final_btn = page.locator(selector).first
+                                if final_btn.is_visible(timeout=1000):
+                                    final_btn.click()
+                                    print("✓ Post submitted")
+                                    break
+                            except:
+                                continue
                     
                     # Wait for confirmation
-                    print("Waiting for post confirmation (10 seconds)...")
-                    page.wait_for_timeout(10000)
+                    print("Waiting for confirmation...")
+                    page.wait_for_timeout(5000)
                     
-                    # Check if we're back on feed (post was successful)
+                    # Check if successful
                     current_url = page.url.lower()
-                    if 'feed' in current_url and 'share' not in current_url and 'post' not in current_url:
-                        print("✓ POST SUCCESSFUL! Back on feed page.")
+                    if 'feed' in current_url and 'share' not in current_url:
+                        print("✓ POST SUCCESSFUL!")
                     else:
-                        print("⚠ Checking if post dialog closed...")
-                        # Try to detect if the dialog is gone
                         try:
                             dialog = page.locator('[role="dialog"]').first
-                            if not dialog.is_visible(timeout=2000):
-                                print("✓ Dialog closed - post likely submitted")
+                            if not dialog.is_visible(timeout=1000):
+                                print("✓ Dialog closed - post submitted")
                             else:
-                                print("⚠ Dialog still open - manual completion may be needed")
+                                print("⚠ Dialog still open")
                         except:
-                            print("✓ No dialog detected - post likely submitted")
-                        
-                        print(f"  Current URL: {page.url}")
+                            print("✓ Post likely submitted")
                 else:
                     print("⚠ Could not find Post button automatically")
                     print()
@@ -392,28 +476,37 @@ _Will be filled after posting_
             print(f"\n✗ Error posting to LinkedIn: {e}")
             return False
 
-    def run(self):
-        """Main flow: Generate post and submit to LinkedIn."""
+    def run(self, auto_mode: bool = False):
+        """Main flow: Generate post and submit to LinkedIn.
+        
+        Args:
+            auto_mode: If True, post without confirmation prompt
+        """
         print("\n" + "=" * 70)
         print("AI Employee - LinkedIn Auto-Post")
         print("=" * 70)
         print()
         print("Powered by Qwen AI")
+        if auto_mode:
+            print("Mode: AUTO (no confirmation required)")
         print()
-        
+
         # Step 1: Generate content
         content = self.generate_post_content()
-        
-        # Step 2: Ask for confirmation
-        print("Do you want to post this content to LinkedIn?")
-        print()
-        response = input("Type 'yes' to post, or press Enter to skip: ").strip().lower()
-        
-        if response != 'yes':
-            print("\nPost cancelled.")
-            print(f"Draft saved to: {self.draft_path}")
-            return
-        
+
+        # Step 2: Ask for confirmation (unless auto mode)
+        if not auto_mode:
+            print("Do you want to post this content to LinkedIn?")
+            print()
+            response = input("Type 'yes' to post, or press Enter to skip: ").strip().lower()
+
+            if response != 'yes':
+                print("\nPost cancelled.")
+                print(f"Draft saved to: {self.draft_path}")
+                return
+        else:
+            print("Auto mode: Posting directly...")
+
         # Step 3: Post to LinkedIn
         success = self.post_to_linkedin(content)
         
@@ -464,8 +557,11 @@ def main():
     project_root = Path(__file__).parent.parent.absolute()
     vault_path = project_root / 'personal-ai-employee'
 
+    # Parse command line arguments
+    auto_mode = '--auto' in sys.argv or '-a' in sys.argv
+
     poster = LinkedInAutoPost(vault_path)
-    poster.run()
+    poster.run(auto_mode=auto_mode)
 
 
 if __name__ == '__main__':

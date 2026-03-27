@@ -84,8 +84,17 @@ class Orchestrator:
 
         pending = []
         for md_file in self.needs_action_path.glob('*.md'):
-            if md_file.name not in self.processed_files:
-                pending.append(md_file)
+            # Skip if already in processed_files (in-memory tracking)
+            if md_file.name in self.processed_files:
+                continue
+
+            # Skip if already processed (has approval request created status)
+            content = md_file.read_text(encoding='utf-8')
+            if '**Status:** Approval request created' in content:
+                logger.debug(f"Skipping already processed: {md_file.name}")
+                continue
+
+            pending.append(md_file)
 
         return pending
 
@@ -481,10 +490,38 @@ Begin. Output ONLY the JSON:'''
 
                 item.write_text(content, encoding='utf-8')
 
-                # Move to Done
+                # Move approval file to Done
                 dest = self.done_path / item.name
                 item.rename(dest)
                 logger.info(f"Moved to Done: {dest.name}")
+
+                # CRITICAL FIX: Also move original email file to Done/ to prevent re-processing
+                if action_type == "send_email":
+                    source_item = None
+                    # Extract source_item from frontmatter
+                    item_content = dest.read_text(encoding='utf-8')
+                    for line in item_content.split('\n'):
+                        if line.startswith('source_item:'):
+                            source_item = line.split(':', 1)[1].strip()
+                            break
+
+                    if source_item:
+                        original_email = self.needs_action_path / source_item
+                        if original_email.exists():
+                            # Move original email to Done/ with reference to approval
+                            email_content = original_email.read_text(encoding='utf-8')
+                            email_content += f"\n\n---\n\n**Linked Approval:** {dest.name}\n**Email Sent:** {datetime.now().isoformat()}\n"
+                            original_email.write_text(email_content, encoding='utf-8')
+                            email_dest = self.done_path / source_item
+                            original_email.rename(email_dest)
+                            logger.info(f"✓ Also moved original email to Done: {source_item}")
+                        else:
+                            # Check if already in Done/
+                            already_done = self.done_path / source_item
+                            if already_done.exists():
+                                logger.debug(f"Original email already in Done: {source_item}")
+                            else:
+                                logger.warning(f"Original email not found: {source_item}")
 
             except Exception as e:
                 logger.error(f"Error processing approved item {item.name}: {e}")
