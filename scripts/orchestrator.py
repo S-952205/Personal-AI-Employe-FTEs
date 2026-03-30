@@ -16,6 +16,11 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Dict
 
+# Import audit logger for Gold Tier compliance
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from audit_logger import get_audit_logger, AuditLogger
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -63,6 +68,9 @@ class Orchestrator:
 
         # MCP Server configuration
         self.mcp_config = self._load_mcp_config()
+        
+        # Initialize audit logger for Gold Tier compliance
+        self.audit = get_audit_logger(vault_path)
 
     def _load_mcp_config(self) -> Dict:
         """Load MCP server configuration."""
@@ -468,14 +476,45 @@ Begin. Output ONLY the JSON:'''
                         if mcp_result.get('success', False):
                             content += f"**MCP Result:** Email sent successfully\n"
                             logger.info(f"✓ Email sent successfully to {email_to}")
+                            
+                            # AUDIT LOG: Email sent successfully
+                            self.audit.log_email_send(
+                                to=email_to,
+                                subject=email_subject,
+                                result="success",
+                                message_id=mcp_result.get('message_id'),
+                                approval_status="approved",
+                                approved_by="human",
+                                source_item=item.name
+                            )
                         else:
                             content += f"**MCP Result:** {mcp_result.get('error', 'Unknown error')}\n"
                             logger.warning(f"Email send failed: {mcp_result.get('error')}")
-                            # Log the actual command for debugging
-                            logger.debug(f"MCP command attempted")
+                            
+                            # AUDIT LOG: Email send failed
+                            self.audit.log_email_send(
+                                to=email_to,
+                                subject=email_subject,
+                                result="failure",
+                                error=mcp_result.get('error'),
+                                approval_status="approved",
+                                approved_by="human",
+                                source_item=item.name
+                            )
                     except Exception as mcp_error:
                         content += f"**MCP Error:** {str(mcp_error)}\n"
                         logger.error(f"MCP email send error: {mcp_error}")
+                        
+                        # AUDIT LOG: MCP error
+                        self.audit.log_email_send(
+                            to=email_to,
+                            subject=email_subject,
+                            result="failure",
+                            error=str(mcp_error),
+                            approval_status="approved",
+                            approved_by="human",
+                            source_item=item.name
+                        )
                 elif action_type == "send_email":
                     missing = []
                     if not email_to:
