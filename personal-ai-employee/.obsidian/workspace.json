@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "bdb5f1eb3d745006",
+        "id": "77f4f4040c6908b6",
         "type": "tabs",
         "children": [
           {
-            "id": "0e3bae667ab10961",
+            "id": "bb090b6bf3c4e918",
             "type": "leaf",
             "state": {
               "type": "empty",
@@ -177,8 +177,11 @@
       "bases:Create new base": false
     }
   },
-  "active": "0e3bae667ab10961",
+  "active": "64638c3c418b12cf",
   "lastOpenFiles": [
+    "Needs_Action/FILE_bafe8e70.md",
+    "Inbox/new_file.txt",
+    "Inbox/Hello.md",
     "Done/EMAIL_19d3adb0.md",
     "Done/APPROVAL_EMAIL_19d3adb0_20260329_233002_065791.md",
     "Approved/APPROVAL_EMAIL_19d3adb0_20260329_233002_065791.md",
@@ -203,8 +206,6 @@
     "Plans/PLAN_20260329_220950.md",
     "Needs_Action/EMAIL_19d3a913.md",
     "Done/EMAIL_19d3a54f.md",
-    "Done/APPROVAL_EMAIL_19d3a54f_20260329_210354_926884.md",
-    "Approved/APPROVAL_EMAIL_19d3a54f_20260329_210354_926884.md",
     "Logs/audit_backup.log",
     "Logs/2026-03-29.json",
     "Logs",
@@ -223,7 +224,6 @@
     "Plans/QWEN_OUTPUT_20260315_192202.txt",
     "Plans/QWEN_OUTPUT_20260315_191856.txt",
     "Plans/QWEN_OUTPUT_20260314_223628.txt",
-    "Plans/QWEN_OUTPUT_20260314_223355.txt",
     "Done/LINKEDIN_POST_20260314_194129.png"
   ]
 }
