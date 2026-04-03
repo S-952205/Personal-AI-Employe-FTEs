@@ -4,7 +4,7 @@
 
 A **production-ready Silver Tier** implementation of a Personal AI Employee - an autonomous agent that works 24/7 to manage your personal and business affairs using **Qwen Code** as the reasoning engine and **Obsidian** as the knowledge dashboard.
 
-**Last Updated:** 2026-03-30 | **Status:** Fully Operational | **Tier Compliance:** Silver ✅ 100% | **Audit Logging:** Gold Compliant ✅
+**Last Updated:** 2026-04-04 | **Status:** Fully Operational | **Tier Compliance:** Silver ✅ 100% | **Audit Logging:** Gold Compliant ✅
 
 ---
 
@@ -16,14 +16,15 @@ A **production-ready Silver Tier** implementation of a Personal AI Employee - an
 |---|---------|--------|-------------|
 | 1 | **File System Watcher** | ✅ | Monitors `/Inbox` for new files (instant detection via watchdog) |
 | 2 | **Gmail Watcher** | ✅ | Monitors Gmail for unread emails (every 2 min, OAuth2) |
-| 3 | **LinkedIn Watcher** | ✅ | Monitors LinkedIn notifications (every 5 min, Playwright) |
-| 4 | **Email MCP Server** | ✅ | Send/draft emails via Gmail API (4 tools) |
-| 5 | **LinkedIn MCP Server** | ✅ | Post updates, send messages, connect (5 tools) |
-| 6 | **HITL Workflow** | ✅ | Full approval system for sensitive actions |
-| 7 | **PM2 Background** | ✅ | 24/7 background processes with auto-restart |
-| 8 | **Task Scheduler** | ✅ | Windows auto-start on boot |
-| 9 | **Agent Skills** | ✅ | 4 reusable skills (browsing, email, linkedin, HITL) |
-| 10 | **Audit Logging** | ✅ | Gold-tier JSON logging with 90-day retention |
+| 3 | **LinkedIn Watcher** | ✅ | Monitors LinkedIn notifications (every 5 min, creates action files) |
+| 4 | **LinkedIn Auto-Posting** | ✅ | `linkedin_post.py --auto` for autonomous posting with duplicate detection |
+| 5 | **Email MCP Server** | ✅ | Send/draft emails via Gmail API (4 tools) |
+| 6 | **LinkedIn MCP Server** | ✅ | Post updates, send messages, connect (5 tools) |
+| 7 | **HITL Workflow** | ✅ | Full approval system for sensitive actions |
+| 8 | **PM2 Background** | ✅ | 24/7 background processes with auto-restart |
+| 9 | **Task Scheduler** | ✅ | Windows auto-start on boot |
+| 10 | **Agent Skills** | ✅ | 4 reusable skills (browsing, email, linkedin, HITL) |
+| 11 | **Audit Logging** | ✅ | Gold-tier JSON logging with 90-day retention |
 
 ---
 
@@ -152,11 +153,13 @@ Personal-AI-Employe-FTEs/
 ├── scripts/                    # 🔧 Python Scripts
 │   ├── filesystem_watcher.py   # Monitors Inbox folder
 │   ├── gmail_watcher.py        # Monitors Gmail
-│   ├── linkedin_watcher.py     # Monitors LinkedIn
-│   ├── orchestrator.py         # Main coordinator
+│   ├── linkedin_watcher.py     # Monitors LinkedIn (creates action files)
+│   ├── linkedin_post.py        # LinkedIn auto-posting (--auto mode)
+│   ├── linkedin_login.py       # LinkedIn session setup
+│   ├── orchestrator.py         # Main coordinator (HITL workflow)
 │   ├── qwen_email_processor.py # AI email processing
-│   ├── linkedin_post.py        # Manual LinkedIn posting
 │   ├── gmail_auth.py           # Gmail OAuth setup
+│   ├── audit_logger.py         # Gold-tier audit logging
 │   ├── setup-pm2.bat           # PM2 setup script
 │   ├── setup-tasks.bat         # Task Scheduler setup
 │   ├── pm2-manage.bat          # PM2 management helper
@@ -207,6 +210,56 @@ Personal-AI-Employe-FTEs/
 | `connect_with_person` | Send connection requests |
 | `send_message` | Send direct messages |
 | `get_notifications` | Get LinkedIn notifications |
+
+---
+
+## 🚀 LinkedIn Auto-Posting
+
+### **Overview**
+
+The LinkedIn auto-posting system allows autonomous posting with proper error handling, duplicate detection, and audience selection.
+
+### **Usage**
+
+```bash
+# Auto mode (no confirmation required)
+python scripts/linkedin_post.py --auto
+
+# Interactive mode (asks for confirmation)
+python scripts/linkedin_post.py
+```
+
+### **Features**
+
+| Feature | Description |
+|---------|-------------|
+| **Auto Mode** | `--auto` flag skips confirmation prompt |
+| **Duplicate Detection** | Adds timestamp and unique ID to avoid LinkedIn's duplicate filter |
+| **Session Persistence** | Uses Playwright persistent session (login once) |
+| **Error Recovery** | 4 fallback strategies for audience dialog |
+| **Verification** | Takes screenshot and verifies post appeared on feed |
+| **Draft Saving** | Saves post draft to `/Plans/` folder before posting |
+
+### **First-Time Setup**
+
+```bash
+# 1. Login to LinkedIn (saves session)
+python scripts/linkedin_login.py
+
+# 2. Test auto-posting
+python scripts/linkedin_post.py --auto
+```
+
+### **How It Works**
+
+1. Opens browser with saved LinkedIn session
+2. Navigates to LinkedIn feed
+3. Opens post creation dialog
+4. Enters content with unique timestamp/ID
+5. Handles audience selection ("Anyone", "Connections", etc.)
+6. Clicks Post button with proper waiting
+7. Verifies post submission
+8. Saves result to `/Done/` folder
 
 ---
 
@@ -374,6 +427,16 @@ python scripts\linkedin_login.py
 pm2 restart linkedin-watcher
 ```
 
+#### Auto-Post to LinkedIn
+
+```bash
+# Autonomous posting (no confirmation)
+python scripts\linkedin_post.py --auto
+
+# Interactive posting (asks first)
+python scripts\linkedin_post.py
+```
+
 **⚠️ Note:** Be aware of LinkedIn's Terms of Service. Use responsibly.
 
 ---
@@ -520,18 +583,25 @@ Drop a test file:
 
 ## 📚 Documentation
 
+All task-specific and historical documentation is organized in the `docs/` folder:
+
+### 📖 Quick Reference (Root Level)
+
 | File | Purpose |
 |------|---------|
-| **`README.md`** | This file - Project overview |
-| **`QUICK_START_GUIDE.md`** | Daily usage reference |
-| **`SETUP_COMPLETE.md`** | Setup summary |
-| **`SILVER_TIER_VERIFICATION.md`** | Complete technical verification |
-| **`SILVER_TIER_COMPLIANCE.md`** | Silver tier compliance checklist |
-| **`HITL_WORKFLOW.md`** | Approval system details |
-| **`AUDIT_LOGGING_COMPLETE.md`** | Gold-tier audit logging docs |
-| **`Personal AI Employee Hackathon 0_...md`** | Full architectural blueprint |
-| **`GMAIL_TESTING_GUIDE.md`** | Gmail setup guide |
-| **`LINKEDIN_SETUP.md`** | LinkedIn configuration |
+| **`README.md`** | This file - Project overview and quick start |
+| **`Personal AI Employee Hackathon 0_ Building Autonomous FTEs in 2026.md`** | Full architectural blueprint and hackathon guide |
+
+### 📂 Detailed Documentation (`docs/` folder)
+
+| Category | Files | Description |
+|----------|-------|-------------|
+| **Guides** | `docs/guides/` | Setup, usage, and troubleshooting guides |
+| **Fixes** | `docs/fixes/` | Bug fixes, patches, and testing guides |
+| **Setup** | `docs/setup/` | Setup completion reports and compliance checklists |
+| **Architecture** | `docs/architecture/` | Codebase analysis and architectural decisions |
+
+**See [docs/README.md](docs/README.md) for complete documentation index.**
 
 ---
 
@@ -618,9 +688,10 @@ Join the Wednesday Research Meeting:
 
 ---
 
-**Last Updated:** 2026-03-30
-**Version:** Silver Tier v1.0 (Production Ready ✅)
+**Last Updated:** 2026-04-04
+**Version:** Silver Tier v1.1 (Production Ready ✅)
 **Status:** Fully Operational - 4 PM2 processes running 24/7
 **Audit Logging:** Gold Tier Compliant ✅
+**LinkedIn Auto-Posting:** Production Ready with --auto flag ✅
 
 *Built with ❤️ for the Personal AI Employee Hackathon 2026*
