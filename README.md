@@ -619,47 +619,6 @@ All task-specific and historical documentation is organized in the `docs/` folde
 | 6 | **Scheduling** | PM2 + Windows Task Scheduler | ✅ |
 | 7 | **Agent Skills** | 4 skills (browsing, email, linkedin, HITL) | ✅ |
 
-### Gold Tier Progress (15% Complete)
-
-| # | Requirement | Status |
-|---|-------------|--------|
-| 1 | **Audit Logging** | ✅ Complete - JSON logging with 90-day retention |
-| 2 | **Odoo Accounting** | ❌ Not implemented |
-| 3 | **CEO Briefing Generator** | ❌ Not implemented |
-| 4 | **Social Media Expansion** | ❌ Not implemented |
-| 5 | **Cloud Deployment** | ❌ Not implemented |
-| 6 | **Multi-Agent A2A** | ❌ Not implemented |
-
----
-
-## 🚀 Next Steps (Gold Tier)
-
-Upgrade to Gold Tier:
-
-1. **Odoo Accounting Integration**
-   - Self-host Odoo Community
-   - Build MCP server for invoices/payments
-   - Weekly accounting audit
-
-2. **CEO Briefing Generator**
-   - Weekly business summary
-   - Revenue tracking
-   - Bottleneck identification
-
-3. **Social Media Expansion**
-   - Facebook/Instagram MCP
-   - Twitter (X) integration
-
-4. **Cloud Deployment**
-   - Deploy to Oracle/AWS VM
-   - 24/7 always-on operation
-   - Health monitoring
-
-5. **Multi-Agent A2A**
-   - Agent-to-agent communication
-   - Domain specialization
-   - Cloud + Local split
-
 ---
 
 ## 📝 License
