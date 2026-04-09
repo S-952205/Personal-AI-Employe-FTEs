@@ -37,7 +37,7 @@ logger = logging.getLogger('FacebookWatcher')
 # ============================================
 
 FACEBOOK_CONFIG = {
-    'PAGE_ACCESS_TOKEN': 'EAANqfnwKehYBRFbUDU1oyt2BQj51rruK2myvduLNoVDJXPHmdTAZChy7Oca8zOcrChpW2jsh4CYVLLMZBHq4AopJEeoTwB0hqif981yOkNvLHBopIrwj08h8uZAzReWirkVrPG5r9PlhcyG4aqgXRe2ScF4zIY7aAlWBbPDKZBiHA7DikqySR0l3FwvK7qZAfkeKJ3dIp0lrhxKzxX4abfNHnrJkcEsLV9bt6kONY',  # Replace with your token
+    'PAGE_ACCESS_TOKEN': 'EAANqfnwKehYBRBpyqranxfNQvEXQS1LGilUHASZCjvjXh8OOhvgO5mxOIKNznUFN0z9c5fZB13Y1QovHKad40yubCcVMKu53hLs6kEm7s4rHtZA3lyONKT6dceXJXifeJKdO0hn0a4J6F6FpHaDVCZArvy99tOGcagmvZASbqvxrAsc6EkXdEfG0u8rTZBcgvhT4fHePny',  # Replace with your token
     'PAGE_ID': '1045279958668364',              # Replace with your Page ID
     'INSTAGRAM_ACCOUNT_ID': 'DUMMY',  # Replace with IG account ID
     'GRAPH_API_BASE': 'https://graph.facebook.com/v19.0',

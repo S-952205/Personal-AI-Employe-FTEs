@@ -201,7 +201,24 @@ class AuditLogger:
             error=error_message,
             source_item=source_item
         )
-    
+
+    def log_action(self, action_type: str, target: str, result: str,
+                   details: Optional[dict] = None, error: Optional[str] = None,
+                   approval_status: str = "auto", approved_by: str = "ai_employee",
+                   source_item: Optional[str] = None, actor: str = "orchestrator"):
+        """Generic action logger for Facebook, Twitter, Odoo, and other operations."""
+        self.log(
+            action_type=action_type,
+            actor=actor,
+            target=target,
+            result=result,
+            parameters=details or {},
+            error=error,
+            approval_status=approval_status,
+            approved_by=approved_by,
+            source_item=source_item
+        )
+
     def cleanup_old_logs(self) -> int:
         """
         Remove/archive logs older than retention_days.

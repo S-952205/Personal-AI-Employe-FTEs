@@ -30,7 +30,7 @@ const CONFIG = {
   FACEBOOK_APP_SECRET: 'fd281bbe539d1db1adb240691cea4181',   // Replace with your App Secret
   
   // Page Access Token (generate from Facebook Graph API Explorer)
-  FACEBOOK_PAGE_ACCESS_TOKEN: 'EAANqfnwKehYBRFbUDU1oyt2BQj51rruK2myvduLNoVDJXPHmdTAZChy7Oca8zOcrChpW2jsh4CYVLLMZBHq4AopJEeoTwB0hqif981yOkNvLHBopIrwj08h8uZAzReWirkVrPG5r9PlhcyG4aqgXRe2ScF4zIY7aAlWBbPDKZBiHA7DikqySR0l3FwvK7qZAfkeKJ3dIp0lrhxKzxX4abfNHnrJkcEsLV9bt6kONY',  // Replace with your token
+  FACEBOOK_PAGE_ACCESS_TOKEN: 'EAANqfnwKehYBRBpyqranxfNQvEXQS1LGilUHASZCjvjXh8OOhvgO5mxOIKNznUFN0z9c5fZB13Y1QovHKad40yubCcVMKu53hLs6kEm7s4rHtZA3lyONKT6dceXJXifeJKdO0hn0a4J6F6FpHaDVCZArvy99tOGcagmvZASbqvxrAsc6EkXdEfG0u8rTZBcgvhT4fHePny',  // Replace with your token
   
   // Facebook Page ID (find in Page settings)
   FACEBOOK_PAGE_ID: '1045279958668364',         // Replace with your Page ID

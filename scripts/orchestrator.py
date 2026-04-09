@@ -20,6 +20,7 @@ from typing import List, Optional, Dict
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 from audit_logger import get_audit_logger, AuditLogger
+from ralph_wiggum import RalphWiggumLoop
 
 # Configure logging
 logging.basicConfig(
@@ -515,6 +516,147 @@ Begin. Output ONLY the JSON:'''
                             approved_by="human",
                             source_item=item.name
                         )
+                elif action_type == "facebook_post":
+                    # Extract Facebook post details
+                    fb_message = ""
+                    fb_image_url = ""
+                    fb_link = ""
+
+                    for line in content.split('\n'):
+                        if '- **Message:**' in line or '- Message:' in line:
+                            fb_message = line.split(':', 1)[1].strip().replace('**', '').strip()
+                        elif '- **Image URL:**' in line or '- Image URL:' in line:
+                            fb_image_url = line.split(':', 1)[1].strip().replace('**', '').strip()
+                        elif '- **Link:**' in line or '- Link:' in line:
+                            fb_link = line.split(':', 1)[1].strip().replace('**', '').strip()
+
+                    # If message not in standard format, try frontmatter or raw extraction
+                    if not fb_message:
+                        for line in content.split('\n'):
+                            if line.startswith('message:'):
+                                fb_message = line.split(':', 1)[1].strip()
+                                break
+
+                    if fb_message:
+                        logger.info(f"Posting to Facebook: {fb_message[:50]}...")
+                        content += f"**Facebook Message:** {fb_message}\n"
+
+                        try:
+                            mcp_result = self._post_to_facebook(fb_message, fb_image_url, fb_link)
+                            if mcp_result.get('success', False):
+                                content += f"**MCP Result:** Facebook post published\n"
+                                content += f"**Post ID:** {mcp_result.get('post_id', 'N/A')}\n"
+                                logger.info("Facebook post successful")
+
+                                self.audit.log_action(
+                                    action_type="facebook_post",
+                                    target="facebook_page",
+                                    result="success",
+                                    details={"message": fb_message[:100], "post_id": mcp_result.get('post_id')},
+                                    approval_status="approved",
+                                    approved_by="human",
+                                    source_item=item.name
+                                )
+                            else:
+                                content += f"**MCP Result:** {mcp_result.get('error', 'Unknown error')}\n"
+                                logger.warning(f"Facebook post failed: {mcp_result.get('error')}")
+
+                                self.audit.log_action(
+                                    action_type="facebook_post",
+                                    target="facebook_page",
+                                    result="failure",
+                                    error=mcp_result.get('error'),
+                                    approval_status="approved",
+                                    approved_by="human",
+                                    source_item=item.name
+                                )
+                        except Exception as mcp_error:
+                            content += f"**MCP Error:** {str(mcp_error)}\n"
+                            logger.error(f"Facebook post error: {mcp_error}")
+
+                            self.audit.log_action(
+                                action_type="facebook_post",
+                                target="facebook_page",
+                                result="failure",
+                                error=str(mcp_error),
+                                approval_status="approved",
+                                approved_by="human",
+                                source_item=item.name
+                            )
+                    else:
+                        content += "**Warning:** Cannot post to Facebook - missing message content\n"
+                        logger.warning("Cannot post to Facebook - missing message")
+
+                elif action_type == "twitter_post":
+                    # Extract Twitter post details
+                    tweet_text = ""
+
+                    for line in content.split('\n'):
+                        if '- **Tweet:**' in line or '- Tweet:' in line:
+                            tweet_text = line.split(':', 1)[1].strip().replace('**', '').strip()
+                        elif '- **Message:**' in line or '- Message:' in line:
+                            tweet_text = line.split(':', 1)[1].strip().replace('**', '').strip()
+
+                    if not tweet_text:
+                        for line in content.split('\n'):
+                            if line.startswith('message:'):
+                                tweet_text = line.split(':', 1)[1].strip()
+                                break
+
+                    if tweet_text:
+                        if len(tweet_text) > 280:
+                            content += f"**Warning:** Tweet text too long ({len(tweet_text)} chars), truncating\n"
+                            tweet_text = tweet_text[:280]
+
+                        logger.info(f"Posting to Twitter: {tweet_text[:50]}...")
+                        content += f"**Tweet:** {tweet_text}\n"
+
+                        try:
+                            mcp_result = self._post_to_twitter(tweet_text)
+                            if mcp_result.get('success', False):
+                                content += f"**MCP Result:** Tweet published\n"
+                                content += f"**Tweet ID:** {mcp_result.get('tweet_id', 'N/A')}\n"
+                                logger.info("Twitter post successful")
+
+                                self.audit.log_action(
+                                    action_type="twitter_post",
+                                    target="twitter",
+                                    result="success",
+                                    details={"tweet": tweet_text[:100], "tweet_id": mcp_result.get('tweet_id')},
+                                    approval_status="approved",
+                                    approved_by="human",
+                                    source_item=item.name
+                                )
+                            else:
+                                content += f"**MCP Result:** {mcp_result.get('error', 'Unknown error')}\n"
+                                logger.warning(f"Twitter post failed: {mcp_result.get('error')}")
+
+                                self.audit.log_action(
+                                    action_type="twitter_post",
+                                    target="twitter",
+                                    result="failure",
+                                    error=mcp_result.get('error'),
+                                    approval_status="approved",
+                                    approved_by="human",
+                                    source_item=item.name
+                                )
+                        except Exception as mcp_error:
+                            content += f"**MCP Error:** {str(mcp_error)}\n"
+                            logger.error(f"Twitter post error: {mcp_error}")
+
+                            self.audit.log_action(
+                                action_type="twitter_post",
+                                target="twitter",
+                                result="failure",
+                                error=str(mcp_error),
+                                approval_status="approved",
+                                approved_by="human",
+                                source_item=item.name
+                            )
+                    else:
+                        content += "**Warning:** Cannot post to Twitter - missing tweet text\n"
+                        logger.warning("Cannot post to Twitter - missing tweet text")
+
                 elif action_type == "send_email":
                     missing = []
                     if not email_to:
@@ -613,6 +755,602 @@ Begin. Output ONLY the JSON:'''
         except Exception as e:
             logger.error(f"Direct Gmail send error: {e}")
             return {'success': False, 'error': str(e)}
+
+    def _post_to_facebook(self, message: str, image_url: str = None, link: str = None) -> Dict:
+        """Post to Facebook Page via Graph API using the facebook_post.py script approach."""
+        try:
+            import requests
+            import re
+
+            # Load Facebook config from MCP server file
+            mcp_config_path = self.vault_path.parent / 'mcp-servers' / 'facebook-mcp' / 'index.js'
+            if not mcp_config_path.exists():
+                return {'success': False, 'error': 'Facebook MCP config not found'}
+
+            content = mcp_config_path.read_text(encoding='utf-8')
+            token_match = re.search(r"FACEBOOK_PAGE_ACCESS_TOKEN:\s*'([^']+)'", content)
+            page_id_match = re.search(r"FACEBOOK_PAGE_ID:\s*'([^']+)'", content)
+
+            if not token_match or not page_id_match:
+                return {'success': False, 'error': 'Facebook credentials not configured'}
+
+            token = token_match.group(1)
+            page_id = page_id_match.group(1)
+
+            # Post to Facebook Page
+            post_data = {
+                'message': message,
+                'published': True,
+                'access_token': token,
+            }
+
+            if image_url:
+                post_data['url'] = image_url
+            if link:
+                post_data['link'] = link
+
+            response = requests.post(
+                f'https://graph.facebook.com/v19.0/{page_id}/feed',
+                json=post_data,
+                timeout=30
+            )
+
+            if not response.ok:
+                err = response.json().get('error', {})
+                return {'success': False, 'error': err.get('message', 'Unknown error')}
+
+            result = response.json()
+            return {
+                'success': True,
+                'post_id': result.get('id'),
+                'url': f"https://facebook.com/{result.get('id')}"
+            }
+
+        except Exception as e:
+            logger.error(f"Facebook post error: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def _post_to_twitter(self, text: str) -> Dict:
+        """Post to Twitter/X via API v2 using OAuth 1.0a."""
+        try:
+            import requests
+            import re
+            import base64
+            import hashlib
+            import hmac
+            from urllib.parse import quote
+
+            # Load Twitter config from MCP server file
+            mcp_config_path = self.vault_path.parent / 'mcp-servers' / 'twitter-mcp' / 'index.js'
+            if not mcp_config_path.exists():
+                return {'success': False, 'error': 'Twitter MCP config not found'}
+
+            content = mcp_config_path.read_text(encoding='utf-8')
+
+            def extract(key):
+                m = re.search(rf"{key}:\s*'([^']+)'", content)
+                return m.group(1) if m else ''
+
+            api_key = extract('TWITTER_API_KEY')
+            api_secret = extract('TWITTER_API_SECRET')
+            access_token = extract('TWITTER_ACCESS_TOKEN')
+            access_token_secret = extract('TWITTER_ACCESS_TOKEN_SECRET')
+
+            if not all([api_key, api_secret, access_token, access_token_secret]):
+                return {'success': False, 'error': 'Twitter credentials not configured'}
+
+            # OAuth 1.0a signing
+            import time
+            url = 'https://api.twitter.com/2/tweets'
+            nonce = base64.b64encode(hashlib.md5(str(time.time()).encode()).digest()).decode()[:32]
+            timestamp = str(int(time.time()))
+
+            oauth_params = {
+                'oauth_consumer_key': api_key,
+                'oauth_nonce': nonce,
+                'oauth_signature_method': 'HMAC-SHA1',
+                'oauth_timestamp': timestamp,
+                'oauth_token': access_token,
+                'oauth_version': '1.0',
+            }
+
+            # Build signature base
+            param_str = '&'.join(
+                f"{quote(k, safe='~')}={quote(v, safe='~')}"
+                for k, v in sorted(oauth_params.items())
+            )
+            base_string = f"POST&{quote(url, safe='~')}&{quote(param_str, safe='~')}"
+            signing_key = f"{quote(api_secret, safe='~')}&{quote(access_token_secret, safe='~')}"
+            signature = base64.b64encode(
+                hmac.new(signing_key.encode(), base_string.encode(), hashlib.sha1).digest()
+            ).decode()
+
+            oauth_params['oauth_signature'] = signature
+            auth_header = 'OAuth ' + ', '.join(
+                f'{quote(k, safe="~")}="{quote(v, safe="~")}"'
+                for k, v in sorted(oauth_params.items())
+            )
+
+            # Post tweet
+            response = requests.post(
+                url,
+                json={'text': text},
+                headers={
+                    'Authorization': auth_header,
+                    'Content-Type': 'application/json',
+                },
+                timeout=30
+            )
+
+            if not response.ok:
+                err = response.json()
+                errors = err.get('errors', [])
+                error_msg = '; '.join(e.get('message', str(e)) for e in errors) if errors else response.text
+                return {'success': False, 'error': error_msg}
+
+            result = response.json()
+            tweet_id = result.get('data', {}).get('id')
+            return {
+                'success': True,
+                'tweet_id': tweet_id,
+                'url': f"https://twitter.com/i/web/status/{tweet_id}"
+            }
+
+        except Exception as e:
+            logger.error(f"Twitter post error: {e}")
+            return {'success': False, 'error': str(e)}
+
+    def auto_post_social(self):
+        """Auto-generate, auto-approve, and post social media in ONE cycle.
+        
+        Full autonomous: Qwen generates → creates plan → posts immediately → Done.
+        No manual approval needed for social media posts (low risk).
+        """
+        import subprocess
+        import re
+        import json
+
+        # Read business goals
+        if not self.business_goals_path.exists():
+            logger.info("Business_Goals.md not found, skipping social post generation")
+            return False
+
+        goals_content = self.business_goals_path.read_text(encoding='utf-8')
+        handbook_rules = ""
+        if self.handbook_path.exists():
+            handbook_rules = self.handbook_path.read_text(encoding='utf-8')
+
+        today = datetime.now().strftime('%Y-%m-%d')
+        done_path = self.done_path
+        pending_path = self.pending_approval_path
+
+        # Check if we already posted today (look in Done/)
+        fb_done = list(done_path.glob(f'FACEBOOK_POST_AUTO_{today}*'))
+        tw_done = list(done_path.glob(f'TWITTER_POST_AUTO_{today}*'))
+        if fb_done and tw_done:
+            logger.info("Social posts already posted today, skipping")
+            return False
+
+        # Build Qwen prompt
+        prompt = f'''You are my AI Employee social media manager. Generate ONE Facebook post and ONE Twitter/X post.
+
+## Business Goals
+{goals_content}
+
+## Company Rules
+{handbook_rules}
+
+## Rules
+- Facebook: Engaging, professional, 1-2 paragraphs, relevant hashtags
+- Twitter: Under 280 chars, action-oriented, 2-3 hashtags
+- Reference specific goals, metrics, projects from Business_Goals.md
+- Tone: Professional but approachable
+
+## Output - JSON ONLY
+```json
+{{
+  "facebook": "Facebook post text",
+  "twitter": "Twitter post text (max 280 chars)"
+}}
+```
+Output ONLY JSON.'''
+
+        # Run Qwen
+        logger.info("🧠 Qwen generating social posts...")
+        fb_message = None
+        tw_message = None
+
+        try:
+            result = subprocess.run(
+                'qwen --prompt "' + prompt.replace('"', "'").replace('\n', ' ') + '"',
+                capture_output=True, text=True, timeout=45,
+                encoding='utf-8', errors='replace', shell=True,
+            )
+            output = result.stdout
+            json_match = re.search(r'```json\s*(.*?)\s*```', output, re.DOTALL)
+            json_str = json_match.group(1) if json_match else output
+            posts = json.loads(json_str)
+            fb_message = posts.get('facebook', '')
+            tw_message = posts.get('twitter', '')
+            logger.info(f"  FB: {fb_message[:60]}...")
+            logger.info(f"  TW: {tw_message[:60]}...")
+        except Exception as e:
+            logger.warning(f"Qwen failed: {e}, using fallback")
+            fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
+            tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
+
+        if not fb_message and not tw_message:
+            return False
+
+        # Create Plan.md
+        plan_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+        plan_path = self.plans_path / f'PLAN_SOCIAL_{today}_{plan_id}.md'
+        plan_path.write_text(f"""---
+type: plan
+created: {datetime.now().isoformat()}
+status: auto_posted
+---
+
+# Social Media Plan - {today}
+
+## Facebook Post
+{fb_message}
+
+## Twitter Post
+{tw_message}
+
+*Generated & posted by AI Employee (Qwen) at {datetime.now().strftime('%H:%M')}*
+""", encoding='utf-8')
+        logger.info(f"📋 Plan created: {plan_path.name}")
+
+        posted_any = False
+
+        # Post to Facebook
+        if fb_message and not fb_done:
+            logger.info("📘 Posting to Facebook...")
+            result = self._post_to_facebook(fb_message)
+            if result.get('success'):
+                # Write completion record to Done/
+                done_file = done_path / f'FACEBOOK_POST_AUTO_{today}_{plan_id}.md'
+                done_file.write_text(f"""---
+type: social_post
+platform: facebook
+posted: {datetime.now().isoformat()}
+status: published
+source: ai_generated_qwen
+---
+
+# Facebook Post Published
+
+## Message
+{fb_message}
+
+## Result
+- **Post ID:** {result.get('post_id')}
+- **URL:** {result.get('url')}
+- **Posted:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+*Auto-posted by AI Employee*
+""", encoding='utf-8')
+                logger.info(f"✅ Facebook posted: {result.get('url')}")
+
+                self.audit.log_action(
+                    action_type="facebook_post",
+                    target="facebook_page",
+                    result="success",
+                    details={"message": fb_message[:100], "post_id": result.get('post_id')},
+                    approval_status="auto_approved",
+                    approved_by="ai_employee",
+                    source_item="auto_generated"
+                )
+                posted_any = True
+            else:
+                logger.warning(f"❌ Facebook failed: {result.get('error')}")
+
+        # Post to Twitter
+        if tw_message and not tw_done:
+            logger.info("🐦 Posting to Twitter...")
+            result = self._post_to_twitter(tw_message)
+            if result.get('success'):
+                done_file = done_path / f'TWITTER_POST_AUTO_{today}_{plan_id}.md'
+                done_file.write_text(f"""---
+type: social_post
+platform: twitter
+posted: {datetime.now().isoformat()}
+status: published
+source: ai_generated_qwen
+---
+
+# Twitter Post Published
+
+## Tweet
+{tw_message}
+
+## Result
+- **Tweet ID:** {result.get('tweet_id')}
+- **URL:** {result.get('url')}
+- **Posted:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
+
+*Auto-posted by AI Employee*
+""", encoding='utf-8')
+                logger.info(f"✅ Twitter posted: {result.get('url')}")
+
+                self.audit.log_action(
+                    action_type="twitter_post",
+                    target="twitter",
+                    result="success",
+                    details={"tweet": tw_message[:100], "tweet_id": result.get('tweet_id')},
+                    approval_status="auto_approved",
+                    approved_by="ai_employee",
+                    source_item="auto_generated"
+                )
+                posted_any = True
+            else:
+                logger.warning(f"❌ Twitter failed: {result.get('error')}")
+
+        return posted_any
+
+    def generate_social_posts(self):
+        """Auto-generate social media posts from Business_Goals.md using Qwen AI.
+        
+        Reads business context + handbook rules, asks Qwen to generate relevant
+        posts for Facebook and Twitter, then creates approval files.
+        Only generates ONE post per platform per cycle to avoid spam.
+        """
+        import subprocess
+        import re
+        import json
+
+        # Read business goals
+        if not self.business_goals_path.exists():
+            logger.info("Business_Goals.md not found, skipping social post generation")
+            return
+
+        goals_content = self.business_goals_path.read_text(encoding='utf-8')
+
+        # Read company handbook for tone/rules
+        handbook_rules = ""
+        if self.handbook_path.exists():
+            handbook_rules = self.handbook_path.read_text(encoding='utf-8')
+
+        # Check if we already generated today
+        today = datetime.now().strftime('%Y-%m-%d')
+        fb_pattern = f"FACEBOOK_POST_AUTO_{today}"
+        tw_pattern = f"TWITTER_POST_AUTO_{today}"
+
+        # Check Done/ — only skip if already POSTED (not just generated)
+        fb_done = list(self.done_path.glob(f'{fb_pattern}*'))
+        tw_done = list(self.done_path.glob(f'{tw_pattern}*'))
+        if fb_done and tw_done:
+            logger.info("Social posts already posted today, skipping")
+            return
+
+        # Always generate NEW posts each run (unique filenames with timestamp)
+        # Old pending approvals stay — user can approve multiple posts
+
+        # Build Qwen prompt for AI-powered content generation
+        prompt = f'''You are my AI Employee's social media manager. Generate ONE Facebook post and ONE Twitter/X post about AI, technology, and current world trends.
+
+## Business Context (use as reference, not main topic)
+{goals_content}
+
+## Company Rules
+{handbook_rules}
+
+## Topics to Cover (pick something trending/relevant)
+- Latest AI developments (LLMs, autonomous agents, AI automation)
+- Technology trends shaping 2026 (AI in business, productivity tools)
+- Current world events with tech angle (AI regulation, digital transformation)
+- AI Employee / Digital FTE concept (24/7 autonomous workers)
+- Business automation, future of work, remote work tools
+- Breaking tech news or announcements
+
+## Rules
+- Facebook: Engaging, professional, 1-2 paragraphs, relevant hashtags
+- Twitter: Under 280 chars, punchy, trending-aware, 2-3 hashtags
+- Each run should generate DIFFERENT content — do not repeat previous posts
+- Be specific, reference real trends or concepts, avoid generic fluff
+- Tone: Insightful, forward-looking, professional but approachable
+
+## Output Format - JSON ONLY
+```json
+{{
+  "facebook": "Your Facebook post text here",
+  "twitter": "Your Twitter post text here (max 280 chars)"
+}}
+```
+
+Output ONLY the JSON. No explanation.'''
+
+        # Run Qwen to generate
+        logger.info("🧠 Asking Qwen to generate social media posts (AI/tech topics)...")
+        try:
+            # Try Qwen CLI first (with short timeout since it's interactive)
+            result = subprocess.run(
+                'qwen --prompt "' + prompt.replace('"', "'").replace('\n', ' ') + '"',
+                capture_output=True,
+                text=True,
+                timeout=45,
+                encoding='utf-8',
+                errors='replace',
+                shell=True,
+            )
+
+            output = result.stdout
+            if result.returncode != 0:
+                logger.warning(f"Qwen returned error: {result.stderr[:200]}")
+                # Fallback to template-based
+                fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
+                tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
+            else:
+                # Extract JSON from Qwen output
+                json_match = re.search(r'```json\s*(.*?)\s*```', output, re.DOTALL)
+                json_str = json_match.group(1) if json_match else output
+
+                try:
+                    posts = json.loads(json_str)
+                    fb_message = posts.get('facebook', '')
+                    tw_message = posts.get('twitter', '')
+                    logger.info(f"Qwen generated Facebook post: {fb_message[:60]}...")
+                    logger.info(f"Qwen generated Twitter post: {tw_message[:60]}...")
+                except json.JSONDecodeError:
+                    logger.warning("Failed to parse Qwen JSON, using fallback templates")
+                    fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
+                    tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
+
+        except subprocess.TimeoutExpired:
+            logger.warning("Qwen timed out, using fallback templates")
+            fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
+            tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
+        except Exception as e:
+            logger.warning(f"Qwen error: {e}, using fallback templates")
+            fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
+            tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
+
+        # Create Plan.md
+        plan_id = datetime.now().strftime('%Y%m%d_%H%M%S')
+        plan_path = self.plans_path / f'PLAN_SOCIAL_{today}_{plan_id}.md'
+        plan_content = f"""---
+type: plan
+created: {datetime.now().isoformat()}
+status: generated
+platforms: facebook, twitter
+source: ai_employee_qwen
+---
+
+# Social Media Plan - {today}
+
+## Generated Posts
+
+### Facebook Post
+{fb_message}
+
+### Twitter Post
+{tw_message}
+
+## Workflow
+1. Review posts in `/Pending_Approval/`
+2. Edit if needed
+3. Move to `/Approved/` to publish
+4. Run orchestrator again to execute
+
+---
+
+*Generated by AI Employee (Qwen) at {datetime.now().strftime('%H:%M')}*
+"""
+        plan_path.write_text(plan_content, encoding='utf-8')
+        logger.info(f"Created social media plan: {plan_path.name}")
+
+        # Create Facebook approval file
+        if fb_message:
+            ts = datetime.now().strftime('%H%M%S')
+            fb_approval_path = self.pending_approval_path / f'FACEBOOK_POST_AUTO_{today}_{ts}.md'
+            fb_content = f"""---
+type: approval_request
+action: facebook_post
+created: {datetime.now().isoformat()}
+status: pending
+priority: normal
+source: ai_generated_qwen
+platform: facebook
+---
+
+# AI-Generated Facebook Post
+
+## Details
+- **Message:** {fb_message}
+- **Platform:** Facebook Page
+- **Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
+- **Source:** Qwen AI - Business Goals Analysis
+
+## To Approve
+Move this file to `/Approved/` folder to publish.
+
+## To Reject
+Move this file to `/Rejected/` folder.
+
+## To Edit
+Modify the message above, then move to `/Approved/`.
+"""
+            fb_approval_path.write_text(fb_content, encoding='utf-8')
+            logger.info(f"✅ Auto-generated Facebook post: {fb_approval_path.name}")
+
+        # Create Twitter approval file
+        if tw_message:
+            ts = datetime.now().strftime('%H%M%S')
+            tw_approval_path = self.pending_approval_path / f'TWITTER_POST_AUTO_{today}_{ts}.md'
+            tw_content = f"""---
+type: approval_request
+action: twitter_post
+created: {datetime.now().isoformat()}
+status: pending
+priority: normal
+source: ai_generated_qwen
+platform: twitter
+---
+
+# AI-Generated Twitter Post
+
+## Details
+- **Tweet:** {tw_message}
+- **Platform:** Twitter/X
+- **Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
+- **Source:** Qwen AI - Business Goals Analysis
+
+## To Approve
+Move this file to `/Approved/` folder to publish.
+
+## To Reject
+Move this file to `/Rejected/` folder.
+
+## To Edit
+Modify the tweet text above (max 280 chars), then move to `/Approved/`.
+"""
+            tw_approval_path.write_text(tw_content, encoding='utf-8')
+            logger.info(f"✅ Auto-generated Twitter post: {tw_approval_path.name}")
+
+    def _generate_post_content(self, platform: str, goals: str, handbook: str = "") -> str:
+        """Generate social media post content based on business goals.
+        
+        Uses rule-based generation (no LLM needed) to create relevant posts.
+        """
+        import random
+        from datetime import datetime
+
+        # Extract context from business goals
+        revenue_target = ""
+        mtd = ""
+        projects = []
+
+        for line in goals.split('\n'):
+            if 'Monthly goal:' in line:
+                revenue_target = line.split(':')[1].strip()
+            elif 'Current MTD:' in line:
+                mtd = line.split(':')[1].strip()
+            elif line.strip().startswith('|') and 'Planning' in line:
+                projects.append(line.strip())
+
+        # Post templates based on platform
+        today = datetime.now()
+
+        if platform == "facebook":
+            templates = [
+                f"🚀 Working towards our Q1 2026 goals! Monthly target: {revenue_target}. We're building something great. #AI #Innovation #Business",
+                f"💡 AI Employee update: Automating business operations one step at a time. Building autonomous systems that work 24/7. #AIAutomation #DigitalFTE",
+                f"📊 Q1 2026 Update: Our AI Employee is handling email, social media, and accounting autonomously. The future of work is here. #AI #Productivity",
+                f"🎯 This week's focus: {revenue_target} monthly revenue target. Our AI assistant is working around the clock to make it happen. #StartupLife #AI",
+                f"🤖 Did you know? Our AI Employee monitors Gmail, posts on social media, and manages invoices — all autonomously with human approval. #AI #Automation",
+            ]
+        else:  # twitter
+            templates = [
+                f"🚀 Q1 2026 Goal: {revenue_target}/month. Our AI Employee is working 24/7 to make it happen. #AIAutomation #BuildInPublic",
+                f"💡 AI Employee can now:\n✅ Monitor emails\n✅ Auto-post on social media\n✅ Manage invoices\n✅ Generate CEO briefings\n\nThe future is autonomous. #AI",
+                f"📊 Building an AI Employee that works 24/7. Currently at {mtd} MTD towards our {revenue_target} goal. Progress > Perfection. #BuildInPublic",
+                f"🤖 Our AI Employee just posted this tweet autonomously (with human approval, of course). Testing autonomous social media. #AI #Automation",
+                f"🎯 Q1 2026: Building autonomous business systems. AI handles email, social, accounting. Human approves, AI executes. #AIAutomation",
+            ]
+
+        return random.choice(templates)
 
     def parse_qwen_output(self, output_file: Path) -> Dict:
         """Parse Qwen's output to extract approval requests and archive decisions."""
@@ -715,9 +1453,12 @@ _Add notes here_
         # Update dashboard
         self.update_dashboard(len(pending), len(approved), len(pending_approvals))
 
-        # Process approved items first (execute MCP actions)
+        # Process approved items first (execute MCP actions: email, Facebook, Twitter)
         if approved:
             self.process_approved_items(approved)
+
+        # Auto-generate social media posts (creates approval files in Pending_Approval/)
+        self.generate_social_posts()
 
         # Process pending emails using Qwen Email Processor (Silver Tier AI reasoning)
         if pending:
@@ -744,19 +1485,50 @@ _Add notes here_
 
         logger.info("Processing cycle complete")
 
-    def run(self):
-        """Run the orchestrator in a continuous loop."""
-        logger.info(f"Starting Orchestrator for vault: {self.vault_path}")
-        logger.info(f"Check interval: {self.check_interval} seconds")
-        logger.info("Press Ctrl+C to stop")
+        # Print summary for user
+        pending_approvals = self.get_pending_approvals()
+        if pending_approvals:
+            print(f"\n📬 Awaiting your approval:")
+            for item in pending_approvals:
+                print(f"  ⏳ {item.name}")
+            print(f"\n  → Move files to Approved/ then run again to post")
 
-        while True:
-            try:
-                self.run_once()
-            except Exception as e:
-                logger.error(f"Error in processing cycle: {e}")
+    def run(self, max_iterations=10):
+        """Run orchestrator with Ralph Wiggum autonomous loop.
+        
+        Keeps cycling until all automated tasks are done.
+        Stops when only Pending_Approval items remain (waiting for human).
+        """
+        logger.info(f"🔄 Starting Ralph Wiggum autonomous loop (max {max_iterations} iterations)")
+        logger.info(f"   Vault: {self.vault_path}")
 
-            time.sleep(self.check_interval)
+        for iteration in range(1, max_iterations + 1):
+            logger.info(f"\n{'='*60}")
+            logger.info(f"📍 Iteration {iteration}/{max_iterations}")
+            logger.info(f"{'='*60}")
+
+            # Run one processing cycle
+            self.run_once()
+
+            # Check what's left
+            pending = self.get_pending_items()       # Needs_Action
+            approved = self.get_approved_items()     # Approved (ready to execute)
+            pending_approvals = self.get_pending_approvals()  # Waiting for human
+
+            logger.info(f"  Status: {len(pending)} action items | {len(approved)} approved | {len(pending_approvals)} awaiting human approval")
+
+            # If nothing for AI to do, we're done
+            if len(pending) == 0 and len(approved) == 0:
+                if len(pending_approvals) > 0:
+                    logger.info(f"\n⏳ AI work complete. {len(pending_approvals)} item(s) waiting for your approval.")
+                else:
+                    logger.info(f"\n✅ All tasks complete!")
+                return
+
+            # Brief pause before next iteration
+            time.sleep(5)
+
+        logger.warning(f"\n⚠️ Max iterations ({max_iterations}) reached. Some items may still be pending.")
 
 
 def main():
