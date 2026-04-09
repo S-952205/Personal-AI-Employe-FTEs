@@ -1,4 +1,4 @@
-# AI Employee FTE - Silver Tier Dependencies
+# AI Employee FTE - Gold Tier Dependencies
 # Install with: pip install -r requirements.txt
 
 # File system monitoring
@@ -11,6 +11,9 @@ google-auth-oauthlib>=0.5.0
 
 # Browser automation for LinkedIn
 playwright>=1.40.0
+
+# HTTP requests for social media APIs
+requests>=2.31.0
 
 # Logging and utilities
 python-dotenv>=1.0.0

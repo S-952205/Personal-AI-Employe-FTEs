@@ -1,0 +1,22 @@
+{
+  "name": "facebook-instagram-mcp",
+  "version": "1.0.0",
+  "description": "Facebook Page and Instagram Business MCP Server using Graph API",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "facebook",
+    "instagram",
+    "graph-api",
+    "social-media"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}

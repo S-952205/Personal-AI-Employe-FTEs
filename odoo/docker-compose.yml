@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # Odoo Community Edition
+  odoo:
+    image: odoo:17
+    container_name: odoo_ai_employee
+    restart: unless-stopped
+    ports:
+      - "8069:8069"
+    environment:
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=odoo
+      - ADMIN_PASSWORD=admin123  # Change this in production!
+    volumes:
+      - odoo-data:/var/lib/odoo
+      - ./odoo-addons:/mnt/extra-addons  # Custom addons (optional)
+      - ./odoo-config:/etc/odoo  # Custom config (optional)
+    depends_on:
+      - db
+    networks:
+      - odoo_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8069"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15
+    container_name: odoo_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - odoo_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  odoo-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+networks:
+  odoo_network:
+    driver: bridge

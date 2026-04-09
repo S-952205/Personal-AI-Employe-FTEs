@@ -18,6 +18,32 @@
       },
       "disabled": false
     },
+    "facebook": {
+      "command": "node",
+      "args": ["mcp-servers/facebook-mcp/index.js"],
+      "env": {
+        "FACEBOOK_PAGE_ACCESS_TOKEN": "",
+        "FACEBOOK_PAGE_ID": ""
+      },
+      "disabled": false
+    },
+    "twitter": {
+      "command": "node",
+      "args": ["mcp-servers/twitter-mcp/index.js"],
+      "env": {
+        "TWITTER_BEARER_TOKEN": ""
+      },
+      "disabled": true
+    },
+    "odoo": {
+      "command": "node",
+      "args": ["mcp-servers/odoo-mcp/index.js"],
+      "env": {
+        "ODOO_URL": "http://localhost:8069",
+        "ODOO_DB": "odoo_db"
+      },
+      "disabled": true
+    },
     "filesystem": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "personal-ai-employee"],
@@ -34,6 +60,23 @@
       "require_approval_for_posts": true,
       "require_approval_for_connection_requests": true,
       "auto_comment": false
+    },
+    "facebook": {
+      "require_approval_for_posts": true,
+      "max_posts_per_day": 5
+    },
+    "instagram": {
+      "require_approval_for_posts": true,
+      "max_posts_per_day": 3
+    },
+    "twitter": {
+      "require_approval_for_posts": true,
+      "max_tweets_per_day": 10
+    },
+    "odoo": {
+      "require_approval_for_invoices": true,
+      "require_approval_for_payments": true,
+      "auto_approve_invoices_under": 500
     }
   }
 }

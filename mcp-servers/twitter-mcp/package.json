@@ -1,0 +1,22 @@
+{
+  "name": "twitter-x-mcp",
+  "version": "1.0.0",
+  "description": "Twitter/X MCP Server using API v2",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "mcp",
+    "twitter",
+    "x",
+    "social-media",
+    "api-v2"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  }
+}
