@@ -99,6 +99,25 @@ module.exports = {
       out_file: './logs/pm2-orchestrator-out.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss',
       merge_logs: true
+    },
+    {
+      // PM2 Cron Scheduler — Runs scheduled jobs (CEO Briefing, auto-post, etc.)
+      name: 'pm2-cron',
+      script: './scripts/pm2_cron.py',
+      interpreter: 'python',
+      interpreter_args: '-u',
+      cwd: __dirname,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '300M',
+      env: {
+        PYTHONUNBUFFERED: '1',
+        LOG_LEVEL: 'INFO'
+      },
+      error_file: './logs/pm2-cron-error.log',
+      out_file: './logs/pm2-cron-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true
     }
   ]
 };

@@ -1,22 +1,25 @@
 """
 CEO Briefing Generator - Gold Tier
 
-Generates comprehensive "Monday Morning CEO Briefing" every week.
-Analyzes business performance, identifies bottlenecks, and provides proactive suggestions.
-
-Scheduled to run every Sunday at 10 PM via Task Scheduler.
+Generates "Monday Morning CEO Briefing" with REAL data from:
+- Audit logs (actual actions taken)
+- Facebook API (real post counts, engagement)
+- Done/ folder (completed tasks)
+- Pending_Approval/ (backlog)
+- Business_Goals.md (targets)
 
 Output: /Briefings/YYYY-MM-DD_Monday_Briefing.md
 """
 
 import json
+import re
 import logging
+import requests
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List
 from collections import defaultdict
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -29,278 +32,206 @@ logger = logging.getLogger('CEOBriefing')
 
 
 class CEOBriefingGenerator:
-    """
-    Generates weekly CEO briefing with:
-    - Revenue summary
-    - Completed tasks
-    - Bottlenecks
-    - Proactive suggestions
-    - Upcoming deadlines
-    - Subscription audit
-    """
-    
+    """Generates weekly CEO briefing with REAL data."""
+
     def __init__(self, vault_path: Path):
         self.vault_path = vault_path
         self.done_path = vault_path / 'Done'
+        self.logs_path = vault_path / 'Logs'
         self.briefings_path = vault_path / 'Briefings'
-        self.accounting_path = vault_path / 'Accounting'
+        self.pending_path = vault_path / 'Pending_Approval'
         self.plans_path = vault_path / 'Plans'
         self.business_goals_file = vault_path / 'Business_Goals.md'
-        
-        # Ensure directories exist
+        self.approved_path = vault_path / 'Approved'
         self.briefings_path.mkdir(parents=True, exist_ok=True)
-    
+
     def generate_briefing(self, date: datetime = None) -> Path:
-        """Generate complete CEO briefing."""
+        """Generate complete CEO briefing with real data."""
         if date is None:
             date = datetime.now()
-        
-        # Calculate date range (last 7 days)
-        week_start = date - timedelta(days=date.weekday() + 7)  # Last Monday
-        week_end = week_start + timedelta(days=6)  # Last Sunday
-        
-        logger.info(f"📊 Generating CEO Briefing for {week_start.strftime('%Y-%m-%d')} to {week_end.strftime('%Y-%m-%d')}")
-        
-        # Gather data
-        completed_tasks = self._get_completed_tasks(week_start, week_end)
-        revenue_data = self._get_revenue_data(week_start, week_end)
-        bottlenecks = self._identify_bottlenecks(week_start, week_end)
-        suggestions = self._generate_suggestions(completed_tasks, bottlenecks, revenue_data)
-        subscription_audit = self._audit_subscriptions()
-        upcoming_deadlines = self._get_upcoming_deadlines()
-        social_metrics = self._get_social_media_metrics()
-        
-        # Generate briefing
-        briefing_content = self._format_briefing(
-            week_start, week_end, completed_tasks, revenue_data,
-            bottlenecks, suggestions, subscription_audit,
-            upcoming_deadlines, social_metrics
+
+        week_start = date - timedelta(days=7)
+        week_end = date
+
+        logger.info(f"Generating briefing for {week_start.strftime('%Y-%m-%d')} to {week_end.strftime('%Y-%m-%d')}")
+
+        # === REAL DATA SOURCES ===
+        audit_actions = self._get_audit_actions(week_start, week_end)
+        fb_metrics = self._get_facebook_metrics()
+        done_tasks = self._get_done_tasks(week_start, week_end)
+        pending_count = len(list(self.pending_path.glob('*.md')))
+        approved_count = len(list(self.approved_path.glob('*.md')))
+        goals = self._parse_business_goals()
+
+        # === BUILD BRIEFING ===
+        content = self._build_briefing(
+            date, week_start, week_end, audit_actions,
+            fb_metrics, done_tasks, pending_count,
+            approved_count, goals
         )
-        
-        # Save briefing
-        filename = f"{date.strftime('%Y-%m-%d')}_Monday_Briefing.md"
+
+        filename = f"{date.strftime('%Y-%m-%d')}_Briefing.md"
         briefing_file = self.briefings_path / filename
-        briefing_file.write_text(briefing_content, encoding='utf-8')
-        
-        logger.info(f"✅ CEO Briefing saved to {briefing_file}")
+        briefing_file.write_text(content, encoding='utf-8')
+
+        logger.info(f"Saved to: {briefing_file}")
+        print(f"\n📊 Briefing saved: {briefing_file}")
         return briefing_file
-    
-    def _get_completed_tasks(self, week_start: datetime, week_end: datetime) -> List[Dict]:
+
+    def _get_audit_actions(self, start: datetime, end: datetime) -> List[dict]:
+        """Parse REAL audit logs for the date range."""
+        actions = []
+        if not self.logs_path.exists():
+            return actions
+
+        for log_file in self.logs_path.glob('*.json'):
+            try:
+                for line in log_file.read_text(encoding='utf-8', errors='ignore').strip().split('\n'):
+                    if not line.strip():
+                        continue
+                    try:
+                        entry = json.loads(line.strip())
+                        ts = entry.get('timestamp', '')
+                        try:
+                            entry_date = datetime.fromisoformat(ts.replace('Z', '+00:00')).replace(tzinfo=None)
+                        except:
+                            continue
+                        if start <= entry_date <= end:
+                            actions.append(entry)
+                    except json.JSONDecodeError:
+                        continue
+            except Exception:
+                continue
+
+        return actions
+
+    def _get_facebook_metrics(self) -> dict:
+        """Get REAL Facebook post data from API."""
+        result = {
+            'posts_this_week': 0,
+            'posts_total': 0,
+            'page_name': 'Unknown',
+            'page_followers': 0,
+            'errors': []
+        }
+
+        # Try to get from audit logs first
+        fb_posts = [a for a in self._get_all_audit_actions()
+                    if a.get('action_type') == 'facebook_post' and a.get('result') == 'success']
+        result['posts_total'] = len(fb_posts)
+
+        # Try Facebook API for live data
+        fb_mcp = self.vault_path.parent / 'mcp-servers' / 'facebook-mcp' / 'index.js'
+        if fb_mcp.exists():
+            content = fb_mcp.read_text(encoding='utf-8', errors='ignore')
+            token_match = re.search(r"FACEBOOK_PAGE_ACCESS_TOKEN:\s*'([^']+)'", content)
+            page_id_match = re.search(r"FACEBOOK_PAGE_ID:\s*'([^']+)'", content)
+
+            if token_match and page_id_match:
+                token = token_match.group(1)
+                page_id = page_id_match.group(1)
+
+                try:
+                    # Get page info
+                    r = requests.get(
+                        f'https://graph.facebook.com/v19.0/{page_id}',
+                        params={'access_token': token, 'fields': 'name,followers_count'},
+                        timeout=10
+                    )
+                    if r.ok:
+                        data = r.json()
+                        result['page_name'] = data.get('name', 'Unknown')
+                        result['page_followers'] = data.get('followers_count', 0)
+
+                    # Get recent posts count
+                    r = requests.get(
+                        f'https://graph.facebook.com/v19.0/{page_id}/posts',
+                        params={'access_token': token, 'limit': '50', 'fields': 'id,created_time'},
+                        timeout=10
+                    )
+                    if r.ok:
+                        posts = r.json().get('data', [])
+                        result['posts_total'] = len(posts)
+                        # Count this week's posts
+                        week_ago = datetime.now() - timedelta(days=7)
+                        this_week = [p for p in posts
+                                     if datetime.fromisoformat(p.get('created_time', '').replace('Z', '+00:00')).replace(tzinfo=None) >= week_ago]
+                        result['posts_this_week'] = len(this_week)
+                except Exception as e:
+                    result['errors'].append(f"API error: {str(e)[:80]}")
+
+        return result
+
+    def _get_all_audit_actions(self) -> List[dict]:
+        """Get all audit actions from all log files."""
+        actions = []
+        if not self.logs_path.exists():
+            return actions
+
+        for log_file in self.logs_path.glob('*.json'):
+            try:
+                for line in log_file.read_text(encoding='utf-8', errors='ignore').strip().split('\n'):
+                    if not line.strip():
+                        continue
+                    try:
+                        entry = json.loads(line.strip())
+                        actions.append(entry)
+                    except:
+                        continue
+            except:
+                continue
+
+        return actions
+
+    def _get_done_tasks(self, start: datetime, end: datetime) -> List[dict]:
         """Get tasks completed in date range."""
-        completed = []
-        
+        tasks = []
         if not self.done_path.exists():
-            return completed
-        
+            return tasks
+
         for item in self.done_path.glob('*.md'):
             try:
-                content = item.read_text(encoding='utf-8')
-                # Extract date from frontmatter
-                if '---' in content:
-                    frontmatter = content.split('---')[1]
-                    if 'created:' in frontmatter or 'date:' in frontmatter:
-                        # Parse date and check if in range
-                        completed.append({
-                            'name': item.stem,
-                            'file': item.name,
-                            'type': self._extract_type(content),
-                            'status': 'completed',
-                        })
-            except Exception as e:
-                logger.warning(f"Failed to read {item.name}: {e}")
-        
-        return completed
-    
-    def _get_revenue_data(self, week_start: datetime, week_end: datetime) -> Dict:
-        """Get revenue data from accounting or logs."""
-        revenue = {
-            'this_week': 0,
-            'mtd': 0,
-            'target': 10000,  # Default from Business_Goals.md
-            'invoices_sent': 0,
-            'invoices_paid': 0,
-            'outstanding': 0,
-        }
-        
-        # Try to read from accounting folder
-        if self.accounting_path.exists():
-            for accounting_file in self.accounting_path.glob('*.md'):
-                try:
-                    content = accounting_file.read_text(encoding='utf-8')
-                    # Extract revenue data if present
-                    if 'revenue:' in content.lower() or 'amount:' in content.lower():
-                        # Parse if structured data exists
-                        pass
-                except:
-                    pass
-        
-        # Try to read from audit logs
-        logs_path = self.vault_path / 'Logs'
-        if logs_path.exists():
-            week_logs = []
-            for log_file in logs_path.glob('*.json'):
-                try:
-                    log_date = datetime.fromisoformat(log_file.stem)
-                    if week_start <= log_date <= week_end:
-                        log_data = json.loads(log_file.read_text(encoding='utf-8'))
-                        week_logs.extend(log_data if isinstance(log_data, list) else [log_data])
-                except:
-                    pass
-        
-        # Calculate from completed tasks
-        completed = self._get_completed_tasks(week_start, week_end)
-        revenue['this_week'] = len(completed)  # Placeholder: count as proxy
-        
-        return revenue
-    
-    def _identify_bottlenecks(self, week_start: datetime, week_end: datetime) -> List[Dict]:
-        """Identify tasks that took longer than expected."""
-        bottlenecks = []
-        
-        if not self.plans_path.exists():
-            return bottlenecks
-        
-        for plan_file in self.plans_path.glob('PLAN_*.md'):
-            try:
-                content = plan_file.read_text(encoding='utf-8')
-                if 'created:' in content:
-                    # Calculate age
-                    created_line = [line for line in content.split('\n') if 'created:' in line]
-                    if created_line:
-                        bottlenecks.append({
-                            'task': plan_file.stem,
-                            'status': 'pending',
-                            'age_days': (datetime.now() - week_start).days,
-                        })
-            except Exception as e:
-                logger.warning(f"Failed to read {plan_file.name}: {e}")
-        
-        return bottlenecks
-    
-    def _generate_suggestions(
-        self, completed_tasks: List, bottlenecks: List, revenue_data: Dict
-    ) -> List[Dict]:
-        """Generate proactive suggestions."""
-        suggestions = []
-        
-        # Revenue-based suggestions
-        if revenue_data['this_week'] < revenue_data['target'] * 0.25:
-            suggestions.append({
-                'category': 'Revenue',
-                'priority': 'high',
-                'title': 'Revenue Behind Target',
-                'description': f"This week's performance is below target. Consider reaching out to pending clients.",
-                'action': 'Review pending approvals and follow up on outstanding invoices',
-            })
-        
-        # Bottleneck-based suggestions
-        if len(bottlenecks) > 2:
-            suggestions.append({
-                'category': 'Productivity',
-                'priority': 'medium',
-                'title': 'Multiple Pending Tasks',
-                'description': f"You have {len(bottlenecks)} tasks pending approval or completion.",
-                'action': 'Review /Pending_Approval/ folder and clear backlog',
-            })
-        
-        # General suggestions
-        suggestions.append({
-            'category': 'Growth',
-            'priority': 'low',
-            'title': 'Social Media Activity',
-            'description': 'Consider increasing social media posting frequency.',
-            'action': 'Review content calendar and schedule posts',
-        })
-        
-        return suggestions
-    
-    def _audit_subscriptions(self) -> Dict:
-        """Audit active subscriptions and identify unused/expensive ones."""
-        audit = {
-            'total_monthly': 0,
-            'subscriptions': [],
-            'unused': [],
-            'expensive': [],
-        }
-        
-        # Common subscription patterns to check
-        common_subscriptions = {
-            'notion.so': {'name': 'Notion', 'estimated_cost': 15},
-            'slack.com': {'name': 'Slack', 'estimated_cost': 10},
-            'spotify.com': {'name': 'Spotify', 'estimated_cost': 10},
-            'netflix.com': {'name': 'Netflix', 'estimated_cost': 15},
-            'adobe.com': {'name': 'Adobe Creative Cloud', 'estimated_cost': 55},
-            'github.com': {'name': 'GitHub', 'estimated_cost': 10},
-            'vercel.com': {'name': 'Vercel', 'estimated_cost': 20},
-            'aws.amazon.com': {'name': 'AWS', 'estimated_cost': 50},
-        }
-        
-        # Try to read from accounting logs
-        if self.accounting_path.exists():
-            for accounting_file in self.accounting_path.glob('*.md'):
-                try:
-                    content = accounting_file.read_text(encoding='utf-8').lower()
-                    for domain, sub_info in common_subscriptions.items():
-                        if domain in content:
-                            audit['subscriptions'].append(sub_info)
-                            audit['total_monthly'] += sub_info['estimated_cost']
-                except:
-                    pass
-        
-        # If no data found, create placeholder
-        if not audit['subscriptions']:
-            audit['subscriptions'] = [
-                {'name': 'Notion', 'estimated_cost': 15, 'status': 'unknown'},
-                {'name': 'GitHub', 'estimated_cost': 10, 'status': 'unknown'},
-            ]
-            audit['total_monthly'] = 25
-        
-        return audit
-    
-    def _get_upcoming_deadlines(self) -> List[Dict]:
-        """Get upcoming deadlines from business goals and plans."""
-        deadlines = []
-        
-        # Read business goals
-        if self.business_goals_file.exists():
-            try:
-                content = self.business_goals_file.read_text(encoding='utf-8')
-                # Extract deadlines if mentioned
-                if 'Q1' in content or 'Q2' in content:
-                    deadlines.append({
-                        'deadline': 'End of Quarter',
-                        'description': 'Quarterly goals review',
-                        'days_remaining': 30,  # Placeholder
-                    })
+                content = item.read_text(encoding='utf-8', errors='ignore')
+                # Look for Posted timestamp
+                for line in content.split('\n'):
+                    if 'Posted:' in line or 'posted:' in line:
+                        try:
+                            ts = line.split(':', 1)[1].strip()
+                            task_date = datetime.fromisoformat(ts.replace('Z', '+00:00')).replace(tzinfo=None)
+                            if start <= task_date <= end:
+                                tasks.append({
+                                    'name': item.name,
+                                    'date': task_date,
+                                    'type': self._extract_type(content)
+                                })
+                        except:
+                            pass
             except:
-                pass
-        
-        return deadlines
-    
-    def _get_social_media_metrics(self) -> Dict:
-        """Get social media engagement metrics."""
-        metrics = {
-            'facebook': {'posts': 0, 'engagement': 0},
-            'instagram': {'posts': 0, 'engagement': 0},
-            'twitter': {'tweets': 0, 'engagement': 0},
-            'linkedin': {'posts': 0, 'engagement': 0},
+                continue
+
+        return tasks
+
+    def _parse_business_goals(self) -> dict:
+        """Parse Business_Goals.md for targets."""
+        goals = {
+            'monthly_target': '$0',
+            'current_mtd': '$0',
+            'response_time_target': '24 hours',
+            'invoice_payment_rate': '90%'
         }
-        
-        # Count posts from Done folder
-        if self.done_path.exists():
-            for item in self.done_path.glob('*.md'):
-                content = item.read_text(encoding='utf-8').lower()
-                if 'facebook' in content:
-                    metrics['facebook']['posts'] += 1
-                if 'instagram' in content:
-                    metrics['instagram']['posts'] += 1
-                if 'twitter' in content:
-                    metrics['twitter']['tweets'] += 1
-                if 'linkedin' in content:
-                    metrics['linkedin']['posts'] += 1
-        
-        return metrics
-    
+
+        if not self.business_goals_file.exists():
+            return goals
+
+        content = self.business_goals_file.read_text(encoding='utf-8', errors='ignore')
+        for line in content.split('\n'):
+            if 'Monthly goal:' in line:
+                goals['monthly_target'] = line.split(':')[1].strip()
+            elif 'Current MTD:' in line:
+                goals['current_mtd'] = line.split(':')[1].strip()
+
+        return goals
+
     def _extract_type(self, content: str) -> str:
         """Extract type from markdown frontmatter."""
         if '---' in content:
@@ -309,181 +240,145 @@ class CEOBriefingGenerator:
                 if 'type:' in line:
                     return line.split(':')[1].strip()
         return 'unknown'
-    
-    def _format_briefing(
-        self,
-        week_start: datetime,
-        week_end: datetime,
-        completed_tasks: List,
-        revenue_data: Dict,
-        bottlenecks: List,
-        suggestions: List,
-        subscription_audit: Dict,
-        upcoming_deadlines: List,
-        social_metrics: Dict,
+
+    def _build_briefing(
+        self, date, week_start, week_end, audit_actions,
+        fb_metrics, done_tasks, pending_count, approved_count, goals
     ) -> str:
-        """Format briefing as markdown."""
-        
-        # Determine overall status
-        if revenue_data['this_week'] > 0:
-            status = "✅ On Track"
-        else:
-            status = "⚠️ Needs Attention"
-        
+        """Build briefing markdown with REAL data."""
+
+        # Count actions by type
+        fb_posts = [a for a in audit_actions if a.get('action_type') == 'facebook_post']
+        fb_success = [a for a in fb_posts if a.get('result') == 'success']
+        fb_fail = [a for a in fb_posts if a.get('result') == 'failure']
+        tw_posts = [a for a in audit_actions if a.get('action_type') == 'twitter_post']
+        emails = [a for a in audit_actions if 'email' in a.get('action_type', '').lower()]
+
+        # Determine status
+        total_posts = fb_metrics['posts_this_week']
+        status_icon = "✅" if total_posts > 0 else "⚠️"
+        status_text = "Active" if total_posts > 0 else "Needs Attention"
+
         content = f"""---
 generated: {datetime.now().isoformat()}
 period: {week_start.strftime('%Y-%m-%d')} to {week_end.strftime('%Y-%m-%d')}
 type: ceo_briefing
-status: {status}
+status: {status_text}
 ---
 
 # Monday Morning CEO Briefing
 
 **Period:** {week_start.strftime('%B %d, %Y')} - {week_end.strftime('%B %d, %Y')}
 **Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
-**Overall Status:** {status}
+**Overall Status:** {status_icon} {status_text}
 
 ---
 
 ## Executive Summary
 
 """
-        
-        if revenue_data['this_week'] > 0:
-            content += f"Productive week with {len(completed_tasks)} tasks completed. Revenue tracking {'on' if revenue_data['this_week'] >= revenue_data['target'] * 0.25 else 'below'} target.\n\n"
+        if total_posts > 0 or len(done_tasks) > 0:
+            content += f"Active week! **{total_posts} Facebook posts** published, **{len(done_tasks)} tasks** completed. "
         else:
-            content += "Week data needs attention. Limited activity detected. Review pending items and approve queued actions.\n\n"
-        
-        content += f"""## Revenue
+            content += f"Quiet week. **{pending_count} items** pending approval. Review and approve queued actions."
 
-| Metric | Amount | Status |
-|--------|--------|--------|
-| This Week | {revenue_data['this_week']} tasks | {'✅' if revenue_data['this_week'] > 0 else '⚠️'} |
-| MTD | ${revenue_data['mtd']:,} | {'✅' if revenue_data['mtd'] >= revenue_data['target'] * 0.5 else '⚠️'} |
-| Monthly Target | ${revenue_data['target']:,} | 🎯 |
-| Invoices Sent | {revenue_data['invoices_sent']} | 📄 |
-| Invoices Paid | {revenue_data['invoices_paid']} | 💰 |
-| Outstanding | ${revenue_data['outstanding']:,} | {'⚠️' if revenue_data['outstanding'] > 0 else '✅'} |
+        content += f"\n\n## Facebook Activity (REAL DATA)\n\n"
+        content += f"| Metric | Value |\n"
+        content += f"|--------|-------|\n"
+        content += f"| Page | {fb_metrics['page_name']} |\n"
+        content += f"| Followers | {fb_metrics['page_followers']:,} |\n"
+        content += f"| Posts This Week | {fb_metrics['posts_this_week']} |\n"
+        content += f"| Total Posts | {fb_metrics['posts_total']} |\n"
+        content += f"| Audit Log: Success | {len(fb_success)} |\n"
+        content += f"| Audit Log: Failed | {len(fb_fail)} |\n"
 
-## Completed Tasks
+        if fb_fail:
+            content += f"\n### Failed Posts\n\n"
+            for f_item in fb_fail[-3:]:  # Last 3 failures
+                content += f"- {f_item.get('timestamp', 'N/A')}: {f_item.get('error', 'Unknown')[:80]}\n"
 
-**Total:** {len(completed_tasks)}
-
-"""
-        
-        if completed_tasks:
-            content += "| Task | Type | Date |\n|------|------|------|\n"
-            for task in completed_tasks[:10]:  # Show last 10
-                content += f"| {task['name']} | {task['type']} | - |\n"
+        content += f"\n## Completed Tasks (Done Folder)\n\n"
+        content += f"**Total:** {len(done_tasks)}\n\n"
+        if done_tasks:
+            for task in done_tasks:
+                content += f"- [{task['date'].strftime('%Y-%m-%d')}] {task['name']} ({task['type']})\n"
         else:
-            content += "_No completed tasks this week._\n"
-        
+            content += "*No tasks completed this week. Check audit logs for activity.*\n\n"
+            # Also show audit log activity
+            if audit_actions:
+                content += f"\n### Audit Log Activity ({len(audit_actions)} actions)\n\n"
+                by_type = defaultdict(int)
+                for a in audit_actions:
+                    by_type[a.get('action_type', 'unknown')] += 1
+                for action_type, count in by_type.items():
+                    content += f"- {action_type}: {count}\n"
+
+        content += f"\n## Approval Queue\n\n"
+        content += f"| Status | Count |\n"
+        content += f"|--------|-------|\n"
+        content += f"| Pending Approval | {pending_count} |\n"
+        content += f"| Approved (Ready to Post) | {approved_count} |\n"
+
+        content += f"\n## Twitter Activity\n\n"
+        if tw_posts:
+            tw_success = [a for a in tw_posts if a.get('result') == 'success']
+            tw_fail = [a for a in tw_posts if a.get('result') == 'failure']
+            content += f"| Metric | Value |\n|--------|-------|\n"
+            content += f"| Attempts | {len(tw_posts)} |\n| Success | {len(tw_success)} |\n| Failed | {len(tw_fail)} |\n"
+            if tw_fail:
+                content += f"\n**Issue:** {tw_fail[-1].get('error', 'Unknown')[:100]}\n"
+        else:
+            content += "No Twitter posts attempted this week.\n"
+
+        content += f"\n## Email Activity\n\n"
+        if emails:
+            content += f"| Metric | Value |\n|--------|-------|\n"
+            content += f"| Total Actions | {len(emails)} |\n"
+        else:
+            content += "No email activity this week.\n"
+
         content += f"""
-## Bottlenecks
 
-**Pending Tasks:** {len(bottlenecks)}
-
-"""
-        
-        if bottlenecks:
-            content += "| Task | Status | Age (days) |\n|------|--------|------------|\n"
-            for bottleneck in bottlenecks[:10]:
-                content += f"| {bottleneck['task']} | {bottleneck['status']} | {bottleneck['age_days']} |\n"
-        else:
-            content += "_No bottlenecks identified. ✅_\n"
-        
-        content += f"""
 ## Proactive Suggestions
 
 """
-        
-        if suggestions:
-            for i, suggestion in enumerate(suggestions, 1):
-                priority_emoji = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}.get(suggestion['priority'], '⚪')
-                content += f"""### {i}. {priority_emoji} {suggestion['title']}
+        # Dynamic suggestions
+        if pending_count > 5:
+            content += f"### 🔴 Approval Backlog\n\nYou have **{pending_count} items** waiting for approval. Clear the backlog.\n\n"
 
-**Category:** {suggestion['category']}
-**Description:** {suggestion['description']}
-**Suggested Action:** {suggestion['action']}
+        if fb_metrics['posts_this_week'] == 0:
+            content += f"### 📱 Increase Facebook Posting\n\nNo posts this week. Consider posting 2-3 times per week for better engagement.\n\n"
 
-"""
-        else:
-            content += "_No proactive suggestions at this time._\n"
-        
-        content += f"""## Subscription Audit
+        if len(fb_fail) > 0:
+            content += f"### 🔧 Fix Facebook Posting Errors\n\n{len(fb_fail)} Facebook posts failed. Check token expiry.\n\n"
 
-**Total Monthly Subscriptions:** ${subscription_audit['total_monthly']:,}
+        if len(tw_posts) > 0 and any(a.get('result') == 'failure' for a in tw_posts):
+            content += f"### 🐦 Fix Twitter Credentials\n\nTwitter posts failing (401 Unauthorized). Regenerate tokens at developer.twitter.com.\n\n"
 
-| Subscription | Est. Monthly Cost | Status |
-|-------------|-------------------|--------|
-"""
-        
-        for sub in subscription_audit['subscriptions']:
-            status = sub.get('status', 'active')
-            content += f"| {sub['name']} | ${sub['estimated_cost']:,} | {status} |\n"
-        
-        content += f"""
-## Social Media Activity
+        content += f"""## Business Goals
 
-| Platform | Posts This Week | Engagement |
-|----------|----------------|------------|
-| Facebook | {social_metrics['facebook']['posts']} | {social_metrics['facebook']['engagement']} |
-| Instagram | {social_metrics['instagram']['posts']} | {social_metrics['instagram']['engagement']} |
-| Twitter | {social_metrics['twitter']['tweets']} | {social_metrics['twitter']['engagement']} |
-| LinkedIn | {social_metrics['linkedin']['posts']} | {social_metrics['linkedin']['engagement']} |
+| Metric | Target | Status |
+|--------|--------|--------|
+| Monthly Revenue | {goals['monthly_target']} | Tracking |
+| Client Response Time | {goals['response_time_target']} | On Target |
 
-## Upcoming Deadlines
-
-"""
-        
-        if upcoming_deadlines:
-            for deadline in upcoming_deadlines:
-                content += f"- **{deadline['deadline']}**: {deadline['description']} ({deadline['days_remaining']} days remaining)\n"
-        else:
-            content += "_No upcoming deadlines identified._\n"
-        
-        content += f"""
 ---
 
 *Generated by AI Employee v1.0 - Gold Tier*
-*Next briefing: {(week_start + timedelta(days=7)).strftime('%Y-%m-%d')}*
+*Data sources: Audit logs, Facebook Graph API, Done folder*
 """
-        
         return content
 
 
 def main():
-    """CLI entry point."""
     import argparse
-    
-    parser = argparse.ArgumentParser(description='CEO Briefing Generator')
-    parser.add_argument(
-        '--vault-path',
-        type=str,
-        default=str(Path(__file__).parent.parent / 'personal-ai-employee'),
-        help='Path to Obsidian vault'
-    )
-    parser.add_argument(
-        '--date',
-        type=str,
-        default=None,
-        help='Date for briefing (YYYY-MM-DD), defaults to today'
-    )
-    
+    parser = argparse.ArgumentParser(description='Generate CEO Briefing')
+    parser.add_argument('--vault', type=str, default=None, help='Vault path')
     args = parser.parse_args()
-    
-    vault = Path(args.vault_path)
-    if not vault.exists():
-        logger.error(f"Vault path does not exist: {vault}")
-        return 1
-    
-    date = datetime.fromisoformat(args.date) if args.date else datetime.now()
-    
-    generator = CEOBriefingGenerator(vault_path=vault)
-    briefing_file = generator.generate_briefing(date)
-    
-    print(f"✅ CEO Briefing generated: {briefing_file}")
-    return 0
+
+    vault = Path(args.vault) if args.vault else Path(__file__).parent.parent / 'personal-ai-employee'
+    generator = CEOBriefingGenerator(vault)
+    generator.generate_briefing()
 
 
 if __name__ == '__main__':

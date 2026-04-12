@@ -83,6 +83,9 @@ def main():
             if new_approved:
                 print(f"✅ Posted {len(new_approved)} item(s)")
 
+            # REFRESH DASHBOARD every cycle
+            o.update_dashboard()
+
             if cycle % 3 == 0 or new_approved:  # Show status every 3rd cycle or when posting
                 print(f"📊 {len(pending_approvals)} pending | Posted: {len(processed_approved)}", end="")
                 if pending_approvals:

@@ -21,6 +21,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent))
 from audit_logger import get_audit_logger, AuditLogger
 from ralph_wiggum import RalphWiggumLoop
+from cross_domain_integration import DomainClassifier, ApprovalThresholdManager
 
 # Configure logging
 logging.basicConfig(
@@ -73,6 +74,10 @@ class Orchestrator:
         # Initialize audit logger for Gold Tier compliance
         self.audit = get_audit_logger(vault_path)
 
+        # Initialize cross-domain classifier
+        self.domain_classifier = DomainClassifier()
+        self.approval_thresholds = ApprovalThresholdManager()
+
     def _load_mcp_config(self) -> Dict:
         """Load MCP server configuration."""
         config_path = self.vault_path.parent / 'mcp-config.json'
@@ -121,53 +126,167 @@ class Orchestrator:
 
         return list(self.pending_approval_path.glob('*.md'))
 
-    def update_dashboard(self, pending_count: int, approved_count: int, approval_pending_count: int):
-        """Update the Dashboard.md with current status."""
-        if not self.dashboard_path.exists():
-            logger.warning("Dashboard.md not found")
-            return
+    def update_dashboard(self, pending_count: int = None, approved_count: int = None, approval_pending_count: int = None):
+        """Update Dashboard.md with REAL-TIME data from all sources.
 
-        try:
-            content = self.dashboard_path.read_text(encoding='utf-8')
+        Pulls live counts from vault folders, audit logs, watchers, and MCP configs.
+        Called after EVERY run cycle — never stale.
+        """
+        now = datetime.now()
 
-            # Update pending actions count and status
-            if "Pending Actions |" in content:
-                # Extract the line and update count
-                lines = content.split('\n')
-                for i, line in enumerate(lines):
-                    if "Pending Actions |" in line:
-                        status_emoji = "⚠️ Pending" if pending_count > 0 else "✅ Clear"
-                        lines[i] = f"| Pending Actions | {pending_count} | {status_emoji} |"
-                        break
-                content = '\n'.join(lines)
+        # If counts not provided, fetch live
+        if pending_count is None:
+            pending_count = len(list(self.needs_action_path.glob('*.md'))) if self.needs_action_path.exists() else 0
+        if approved_count is None:
+            approved_count = len(list(self.approved_path.glob('*.md'))) if self.approved_path.exists() else 0
+        if approval_pending_count is None:
+            approval_pending_count = len(list(self.pending_approval_path.glob('*.md'))) if self.pending_approval_path.exists() else 0
 
-            # Update pending approvals
-            if "Pending Approvals |" in content:
-                lines = content.split('\n')
-                for i, line in enumerate(lines):
-                    if "Pending Approvals |" in line:
-                        status_emoji = "⏳ Awaiting Review" if approval_pending_count > 0 else "✅ None"
-                        lines[i] = f"| Pending Approvals | {approval_pending_count} | {status_emoji} |"
-                        break
-                content = '\n'.join(lines)
+        # Live folder counts
+        done_count = len(list(self.done_path.glob('*.md'))) if self.done_path.exists() else 0
+        inbox_count = len(list(self.inbox_path.glob('*'))) if self.inbox_path.exists() else 0
+        plans_count = len(list(self.plans_path.glob('*.md'))) if self.plans_path.exists() else 0
+        in_progress_count = len(list(self.in_progress_path.glob('*.md'))) if self.in_progress_path.exists() else 0
+        rejected_count = len(list(self.rejected_path.glob('*.md'))) if self.rejected_path.exists() else 0
 
-            # Update last processed time
-            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            if "Last Processed |" in content:
-                content = content.replace(
-                    "Last Processed | - |",
-                    f"Last Processed | {now} |"
-                )
-                content = content.replace(
-                    f"Last Processed | {now.split(' ')[0]} |",
-                    f"Last Processed | {now} |"
-                )
+        # Today's audit log stats
+        today_audit_count = 0
+        today_email_sent = 0
+        today_fb_posts = 0
+        today_tw_posts = 0
+        today_errors = 0
+        audit_log_file = self.vault_path / 'Logs' / f'{now.strftime("%Y-%m-%d")}.json'
+        if audit_log_file.exists():
+            try:
+                for line in audit_log_file.read_text(encoding='utf-8', errors='ignore').strip().split('\n'):
+                    if not line.strip():
+                        continue
+                    try:
+                        entry = json.loads(line.strip())
+                        today_audit_count += 1
+                        atype = entry.get('action_type', '')
+                        result = entry.get('result', '')
+                        if atype == 'email_send' and result == 'success':
+                            today_email_sent += 1
+                        elif atype == 'facebook_post':
+                            today_fb_posts += 1
+                        elif atype == 'twitter_post':
+                            today_tw_posts += 1
+                        if atype.startswith('error_'):
+                            today_errors += 1
+                    except json.JSONDecodeError:
+                        continue
+            except Exception:
+                pass
 
-            self.dashboard_path.write_text(content, encoding='utf-8')
-            logger.info(f"Dashboard updated: {pending_count} pending, {approved_count} approved, {approval_pending_count} awaiting approval")
+        # MCP server status (read directly from mcp-config.json)
+        servers_config = self.mcp_config.get('servers', {})
+        email_mcp_status = '✅ Enabled' if not servers_config.get('email', {}).get('disabled', True) else '❌ Disabled'
+        linkedin_mcp_status = '✅ Enabled' if not servers_config.get('linkedin', {}).get('disabled', True) else '❌ Disabled'
+        facebook_mcp_status = '✅ Enabled' if not servers_config.get('facebook', {}).get('disabled', True) else '❌ Disabled'
+        twitter_mcp_status = '✅ Enabled' if not servers_config.get('twitter', {}).get('disabled', True) else '❌ Disabled'
+        odoo_mcp_status = '✅ Enabled' if not servers_config.get('odoo', {}).get('disabled', True) else '❌ Disabled'
 
-        except Exception as e:
-            logger.error(f"Error updating dashboard: {e}")
+        # Recent activity (last 5 done items)
+        recent_activity = ""
+        if self.done_path.exists():
+            done_items = sorted(self.done_path.glob('*.md'), key=lambda f: f.stat().st_mtime, reverse=True)[:5]
+            if done_items:
+                recent_activity = "| Time | File | Type |\n|------|------|------|\n"
+                for item in done_items:
+                    mtime = datetime.fromtimestamp(item.stat().st_mtime).strftime('%H:%M')
+                    item_type = 'unknown'
+                    content = item.read_text(encoding='utf-8', errors='ignore')
+                    if 'type:' in content:
+                        try:
+                            fm = content.split('---')[1]
+                            for line in fm.split('\n'):
+                                if line.strip().startswith('type:'):
+                                    item_type = line.split(':', 1)[1].strip()
+                                    break
+                        except:
+                            pass
+                    recent_activity += f"| {mtime} | {item.name[:35]} | {item_type} |\n"
+            else:
+                recent_activity = "_No completed items yet._\n"
+
+        # Build dashboard
+        pending_status = "⚠️ Pending" if pending_count > 0 else "✅ Clear"
+        approved_status_text = "📤 Ready" if approved_count > 0 else "✅ None"
+        approval_status_text = "⏳ Awaiting Review" if approval_pending_count > 0 else "✅ None"
+
+        content = f"""---
+type: dashboard
+last_updated: {now.strftime('%Y-%m-%d %H:%M:%S')}
+status: active
+tier: gold
+---
+
+# AI Employee Dashboard — Gold Tier
+
+## Executive Summary (LIVE)
+
+| Metric | Count | Status |
+|--------|-------|--------|
+| Needs Action | {pending_count} | {pending_status} |
+| Approved (Ready to Execute) | {approved_count} | {approved_status_text} |
+| Pending Approvals | {approval_pending_count} | {approval_status_text} |
+| Done (Completed) | {done_count} | {'✅' if done_count > 0 else '⏳'} |
+| Inbox | {inbox_count} | ⏳ |
+| Plans | {plans_count} | ⏳ |
+| In Progress | {in_progress_count} | ⏳ |
+| Rejected | {rejected_count} | {'⚠️' if rejected_count > 0 else '✅'} |
+
+---
+
+## Today's Activity ({now.strftime('%Y-%m-%d')})
+
+| Metric | Count |
+|--------|-------|
+| Audit Log Entries | {today_audit_count} |
+| Emails Sent | {today_email_sent} |
+| Facebook Posts | {today_fb_posts} |
+| Twitter Posts | {today_tw_posts} |
+| Errors | {today_errors} |
+
+---
+
+## MCP Server Status
+
+| Server | Status |
+|--------|--------|
+| Email | {email_mcp_status} |
+| LinkedIn | {linkedin_mcp_status} |
+| Facebook | {facebook_mcp_status} |
+| Twitter | {twitter_mcp_status} |
+| Odoo | {odoo_mcp_status} |
+
+---
+
+## Recent Completed Activity
+
+{recent_activity}
+
+---
+
+## Quick Links
+
+- [Needs Action](./Needs_Action/) — {pending_count} items
+- [Approved](./Approved/) — {approved_count} items
+- [Pending Approval](./Pending_Approval/) — {approval_pending_count} items
+- [Done](./Done/) — {done_count} items
+- [Briefings](./Briefings/)
+- [Accounting](./Accounting/)
+- [Logs](./Logs/)
+
+---
+
+*Last updated: {now.strftime('%Y-%m-%d %H:%M:%S')} — Auto-refreshed every cycle*
+*AI Employee v1.0 — Gold Tier*
+"""
+
+        self.dashboard_path.write_text(content, encoding='utf-8')
+        logger.info(f"📊 Dashboard updated LIVE: {pending_count} action | {approved_count} approved | {approval_pending_count} pending approval | {done_count} done")
 
     def create_plan(self, items: List[Path]) -> Optional[Path]:
         """Create a Plan.md file for Claude to process."""
@@ -1485,8 +1604,13 @@ _Add notes here_
 
         logger.info("Processing cycle complete")
 
+        # REFRESH DASHBOARD with final counts after all processing
+        final_pending = len(self.get_pending_items())
+        final_approved = len(self.get_approved_items())
+        final_pending_approvals = len(self.get_pending_approvals())
+        self.update_dashboard(final_pending, final_approved, final_pending_approvals)
+
         # Print summary for user
-        pending_approvals = self.get_pending_approvals()
         if pending_approvals:
             print(f"\n📬 Awaiting your approval:")
             for item in pending_approvals:
@@ -1523,7 +1647,12 @@ _Add notes here_
                     logger.info(f"\n⏳ AI work complete. {len(pending_approvals)} item(s) waiting for your approval.")
                 else:
                     logger.info(f"\n✅ All tasks complete!")
+                # Final dashboard refresh
+                self.update_dashboard(0, 0, len(pending_approvals))
                 return
+
+            # Final dashboard refresh for this iteration
+            self.update_dashboard(len(pending), len(approved), len(pending_approvals))
 
             # Brief pause before next iteration
             time.sleep(5)

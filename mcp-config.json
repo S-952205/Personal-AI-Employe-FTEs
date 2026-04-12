@@ -40,9 +40,11 @@
       "args": ["mcp-servers/odoo-mcp/index.js"],
       "env": {
         "ODOO_URL": "http://localhost:8069",
-        "ODOO_DB": "odoo_db"
+        "ODOO_DB": "odoo_db",
+        "ODOO_EMAIL": "admin@example.com",
+        "ODOO_PASSWORD": "admin"
       },
-      "disabled": true
+      "disabled": false
     },
     "filesystem": {
       "command": "npx",

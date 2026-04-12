@@ -26,15 +26,15 @@ const { CallToolRequestSchema, ListToolsRequestSchema } = require('@modelcontext
 
 const CONFIG = {
   // Twitter API v2 Credentials
-  TWITTER_API_KEY: 'EzS5vYyR0AeY6n4UcSuMvDlQq',                     // Replace with your API Key
-  TWITTER_API_SECRET: 'TZfZsfwiOlZYcSb1qyjM7nlgi5cHSNuOGwU6I5HbYrSJNal2xU',               // Replace with your API Secret
-  TWITTER_BEARER_TOKEN: 'AAAAAAAAAAAAAAAAAAAAALJJ8wEAAAAAjoGzW9eGblqirmUn%2F5%2FU7MMJtm8%3DI2M8y1mcnN925JAxu3goEQQh9w1yFqgATODybVrqZ15loZi06C',           // Replace with your Bearer Token
-  TWITTER_ACCESS_TOKEN: '1350922842792218628-7vMnlUQiAb0uVfxsNXCyk61xr25dX6',           // Replace with your Access Token
-  TWITTER_ACCESS_TOKEN_SECRET: 'bWO8tZXIVPD1KJFHA4A2rQ5alPEs2wFkxn2laJWTMf2Zz',  // Replace with your Access Token Secret
-  
+  TWITTER_API_KEY: '2z5uirrylxjKTkR7YyomYhDCa',                     // Replace with your API Key
+  TWITTER_API_SECRET: 'Cyo3dPgXybzvA0f62jvwrNurbKi5KoCev49c0mIwW38PpPtAsm',               // Replace with your API Secret
+  TWITTER_BEARER_TOKEN: 'AAAAAAAAAAAAAAAAAAAAALJJ8wEAAAAAfzkuTJ66touJ2uSo5ax4LHODFVs%3DeHTkh9agYulX1I6LiKkJg1LPcARFveIQo9Zl735y002v2rMyLv',           // Replace with your Bearer Token
+  TWITTER_ACCESS_TOKEN: '1350922842792218628-G1s8dQei81n5mCWH3lvV3NPgvDbiuN',           // Replace with your Access Token
+  TWITTER_ACCESS_TOKEN_SECRET: 'FB5fDPZNb6vyA5j5OwZgT1MKAgxoQvDVmUNWzNLBEKKPm',  // Replace with your Access Token Secret
+
   // API Base URLs
   TWITTER_API_BASE: 'https://api.twitter.com/2',
-  
+
   // Rate limiting
   MAX_TWEETS_PER_DAY: 15,
   TWEET_COOLDOWN_SECONDS: 300,  // 5 minutes between tweets
