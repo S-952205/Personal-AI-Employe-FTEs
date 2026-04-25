@@ -65,6 +65,24 @@ module.exports = {
       merge_logs: true
     },
     {
+      name: 'facebook-watcher',
+      script: './scripts/facebook_watcher.py',
+      interpreter: 'python',
+      interpreter_args: '-u',
+      cwd: __dirname,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: '500M',
+      env: {
+        PYTHONUNBUFFERED: '1',
+        LOG_LEVEL: 'INFO'
+      },
+      error_file: './logs/pm2-facebook-watcher-error.log',
+      out_file: './logs/pm2-facebook-watcher-out.log',
+      log_date_format: 'YYYY-MM-DD HH:mm:ss',
+      merge_logs: true
+    },
+    {
       name: 'filesystem-watcher',
       script: './scripts/filesystem_watcher.py',
       interpreter: 'python',

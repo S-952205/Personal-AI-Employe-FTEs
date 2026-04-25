@@ -22,8 +22,8 @@
       "command": "node",
       "args": ["mcp-servers/facebook-mcp/index.js"],
       "env": {
-        "FACEBOOK_PAGE_ACCESS_TOKEN": "",
-        "FACEBOOK_PAGE_ID": ""
+        "FACEBOOK_PAGE_ACCESS_TOKEN": "YOUR_PAGE_ACCESS_TOKEN_HERE",
+        "FACEBOOK_PAGE_ID": "YOUR_PAGE_ID_HERE"
       },
       "disabled": false
     },
@@ -31,9 +31,9 @@
       "command": "node",
       "args": ["mcp-servers/twitter-mcp/index.js"],
       "env": {
-        "TWITTER_BEARER_TOKEN": ""
+        "TWITTER_BEARER_TOKEN": "YOUR_BEARER_TOKEN_HERE"
       },
-      "disabled": false
+      "disabled": true
     },
     "odoo": {
       "command": "node",
@@ -42,7 +42,7 @@
         "ODOO_URL": "http://localhost:8069",
         "ODOO_DB": "odoo_db",
         "ODOO_EMAIL": "admin@example.com",
-        "ODOO_PASSWORD": "admin"
+        "ODOO_PASSWORD": "YOUR_ODOO_PASSWORD_HERE"
       },
       "disabled": false
     },

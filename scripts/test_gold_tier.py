@@ -111,7 +111,7 @@ def main():
 
     # === 4. Agent Skills ===
     print("\n🧩 4. AGENT SKILLS (8 required for Gold)")
-    skills_path = ROOT / '.qwen' / 'skills'
+    skills_path = ROOT / '.kilo' / 'skills'
     skills = ['browsing-with-playwright', 'email-operations', 'linkedin-operations',
               'facebook-operations', 'twitter-operations', 'hitl-approval',
               'odoo-accounting', 'ralph-wiggum']
@@ -162,7 +162,7 @@ def main():
         check("Facebook posting method", '_post_to_facebook' in content)
         check("Twitter posting method", '_post_to_twitter' in content)
         check("Social post generation", 'generate_social_posts' in content)
-        check("Qwen integration", 'subprocess.run' in content and 'qwen' in content.lower())
+        check("Kilo integration", 'subprocess.run' in content and 'kilo' in content.lower())
         check("Audit logging", 'audit.log_action' in content or 'self.audit' in content)
         check("Plan creation", 'create_plan' in content or 'Plan' in content)
 

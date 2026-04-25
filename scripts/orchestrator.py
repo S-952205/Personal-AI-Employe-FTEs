@@ -4,7 +4,7 @@ Orchestrator for AI Employee - Silver Tier
 Enhanced orchestrator with HITL (Human-in-the-Loop) workflow,
 multi-watcher support, and MCP server integration.
 
-Uses Qwen Code for AI reasoning and processing.
+Uses Kilo Code for AI reasoning and processing.
 """
 
 import subprocess
@@ -23,15 +23,45 @@ from audit_logger import get_audit_logger, AuditLogger
 from ralph_wiggum import RalphWiggumLoop
 from cross_domain_integration import DomainClassifier, ApprovalThresholdManager
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('logs/orchestrator.log', encoding='utf-8'),
-        logging.StreamHandler()
-    ]
-)
+# Configure logging - file + clean console
+import logging
+import sys
+import io
+from logging.handlers import RotatingFileHandler
+
+# Console handler - only show important messages
+class CleanConsoleHandler(logging.StreamHandler):
+    def emit(self, record):
+        # Only show warnings, errors, and specific info messages
+        msg = record.getMessage()
+        important = (
+            record.levelno >= logging.WARNING or
+            'Posted' in msg or
+            'Moved to' in msg or
+            'START' in msg or
+            'STOP' in msg or
+            'Error' in msg or
+            'Failed' in msg or
+            'Done' in msg
+        )
+        if important:
+            super().emit(record)
+
+# File handler (for audit trail)
+file_handler = RotatingFileHandler('logs/orchestrator.log', maxBytes=5*1024*1024, backupCount=3, encoding='utf-8')
+file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+file_handler.setLevel(logging.DEBUG)
+
+# Console handler (clean output)
+console_handler = CleanConsoleHandler(sys.stdout)
+console_handler.setFormatter(logging.Formatter('[%(levelname)s] %(message)s'))
+console_handler.setLevel(logging.INFO)
+
+# Configure logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.DEBUG)
+root_logger.handlers = [file_handler, console_handler]
+
 logger = logging.getLogger('Orchestrator')
 
 
@@ -181,11 +211,11 @@ class Orchestrator:
 
         # MCP server status (read directly from mcp-config.json)
         servers_config = self.mcp_config.get('servers', {})
-        email_mcp_status = '✅ Enabled' if not servers_config.get('email', {}).get('disabled', True) else '❌ Disabled'
-        linkedin_mcp_status = '✅ Enabled' if not servers_config.get('linkedin', {}).get('disabled', True) else '❌ Disabled'
-        facebook_mcp_status = '✅ Enabled' if not servers_config.get('facebook', {}).get('disabled', True) else '❌ Disabled'
-        twitter_mcp_status = '✅ Enabled' if not servers_config.get('twitter', {}).get('disabled', True) else '❌ Disabled'
-        odoo_mcp_status = '✅ Enabled' if not servers_config.get('odoo', {}).get('disabled', True) else '❌ Disabled'
+        email_mcp_status = '[...] Enabled' if not servers_config.get('email', {}).get('disabled', True) else '❌ Disabled'
+        linkedin_mcp_status = '[...] Enabled' if not servers_config.get('linkedin', {}).get('disabled', True) else '❌ Disabled'
+        facebook_mcp_status = '[...] Enabled' if not servers_config.get('facebook', {}).get('disabled', True) else '❌ Disabled'
+        twitter_mcp_status = '[...] Enabled' if not servers_config.get('twitter', {}).get('disabled', True) else '❌ Disabled'
+        odoo_mcp_status = '[...] Enabled' if not servers_config.get('odoo', {}).get('disabled', True) else '❌ Disabled'
 
         # Recent activity (last 5 done items)
         recent_activity = ""
@@ -211,9 +241,9 @@ class Orchestrator:
                 recent_activity = "_No completed items yet._\n"
 
         # Build dashboard
-        pending_status = "⚠️ Pending" if pending_count > 0 else "✅ Clear"
-        approved_status_text = "📤 Ready" if approved_count > 0 else "✅ None"
-        approval_status_text = "⏳ Awaiting Review" if approval_pending_count > 0 else "✅ None"
+        pending_status = "⚠️ Pending" if pending_count > 0 else "[...] Clear"
+        approved_status_text = "[INFO] Ready" if approved_count > 0 else "[...] None"
+        approval_status_text = "⏳ Awaiting Review" if approval_pending_count > 0 else "[...] None"
 
         content = f"""---
 type: dashboard
@@ -231,11 +261,11 @@ tier: gold
 | Needs Action | {pending_count} | {pending_status} |
 | Approved (Ready to Execute) | {approved_count} | {approved_status_text} |
 | Pending Approvals | {approval_pending_count} | {approval_status_text} |
-| Done (Completed) | {done_count} | {'✅' if done_count > 0 else '⏳'} |
+| Done (Completed) | {done_count} | {'[...]' if done_count > 0 else '⏳'} |
 | Inbox | {inbox_count} | ⏳ |
 | Plans | {plans_count} | ⏳ |
 | In Progress | {in_progress_count} | ⏳ |
-| Rejected | {rejected_count} | {'⚠️' if rejected_count > 0 else '✅'} |
+| Rejected | {rejected_count} | {'⚠️' if rejected_count > 0 else '[...]'} |
 
 ---
 
@@ -286,7 +316,7 @@ tier: gold
 """
 
         self.dashboard_path.write_text(content, encoding='utf-8')
-        logger.info(f"📊 Dashboard updated LIVE: {pending_count} action | {approved_count} approved | {approval_pending_count} pending approval | {done_count} done")
+        logger.info(f"[DONE] Dashboard updated LIVE: {pending_count} action | {approved_count} approved | {approval_pending_count} pending approval | {done_count} done")
 
     def create_plan(self, items: List[Path]) -> Optional[Path]:
         """Create a Plan.md file for Claude to process."""
@@ -324,7 +354,7 @@ item_types: {', '.join(item_types)}
 
 {items_list}
 
-## Instructions for Qwen Code
+## Instructions for Kilo Code
 
 1. Read each item in the list above from `/Needs_Action/`
 2. Review the [Company Handbook](../Company_Handbook.md) for rules of engagement
@@ -431,13 +461,13 @@ _Add notes here_
             logger.error(f"Error creating approval request: {e}")
             return None
 
-    def trigger_qwen(self, plan_path: Path, output_file: Path = None) -> bool:
-        """Trigger Qwen Code to process the plan."""
+    def trigger_kilo(self, plan_path: Path, output_file: Path = None) -> bool:
+        """Trigger Kilo Code to process the plan."""
         if not plan_path.exists():
             logger.error(f"Plan file not found: {plan_path}")
             return False
 
-        logger.info(f"Triggering Qwen Code for plan: {plan_path.name}")
+        logger.info(f"Triggering Kilo Code for plan: {plan_path.name}")
 
         # Get list of emails to process
         emails_to_process = [p.name for p in plan_path.parent.parent.glob('Needs_Action/*.md')]
@@ -460,17 +490,17 @@ _Add notes here_
         
         email_context_str = '\n'.join(email_contexts)
 
-        # Build the prompt for Qwen - SIMPLE JSON FORMAT
+        # Build the prompt for Kilo - SIMPLE JSON FORMAT
         prompt = f'''You are my AI Employee. Process these emails from Needs_Action folder.
 
 **Emails to process:**
 {email_context_str}
 
 **RULES:**
-- Unknown sender with business inquiry → approval_required + draft response
-- Known contact → approval_required + draft response  
-- Promotional/newsletter → archive
-- Test/greeting from yourself → archive
+- Unknown sender with business inquiry -> approval_required + draft response
+- Known contact -> approval_required + draft response  
+- Promotional/newsletter -> archive
+- Test/greeting from yourself -> archive
 
 **OUTPUT FORMAT:**
 Output ONLY JSON in a code block. Example:
@@ -484,8 +514,8 @@ Output ONLY JSON in a code block. Example:
 Begin. Output ONLY the JSON:'''
 
         try:
-            # Run Qwen Code with the prompt
-            cmd = f'qwen --prompt "{prompt}"'
+            # Run Kilo Code with the prompt
+            cmd = f'kilo --prompt "{prompt}"'
 
             logger.info(f"Running: {cmd}")
 
@@ -500,27 +530,27 @@ Begin. Output ONLY the JSON:'''
             )
 
             if result.returncode == 0:
-                logger.info("Qwen Code completed successfully")
+                logger.info("Kilo Code completed successfully")
                 
-                # Save Qwen's output to a file for parsing
+                # Save Kilo's output to a file for parsing
                 if output_file:
                     output_file.write_text(result.stdout, encoding='utf-8')
-                    logger.info(f"Qwen output saved to: {output_file}")
-                    logger.info(f"Qwen output preview: {result.stdout[:500]}...")
+                    logger.info(f"Kilo output saved to: {output_file}")
+                    logger.info(f"Kilo output preview: {result.stdout[:500]}...")
                 
                 return True
             else:
-                logger.error(f"Qwen Code failed: {result.stderr}")
+                logger.error(f"Kilo Code failed: {result.stderr}")
                 return False
 
         except subprocess.TimeoutExpired:
-            logger.error("Qwen Code timed out after 10 minutes")
+            logger.error("Kilo Code timed out after 10 minutes")
             return False
         except FileNotFoundError:
-            logger.error("Qwen Code not found. Please ensure 'qwen' is in PATH")
+            logger.error("Kilo Code not found. Please ensure 'kilo' is in PATH")
             return False
         except Exception as e:
-            logger.error(f"Error triggering Qwen Code: {e}")
+            logger.error(f"Error triggering Kilo Code: {e}")
             return False
 
     def process_approved_items(self, items: List[Path]):
@@ -595,7 +625,7 @@ Begin. Output ONLY the JSON:'''
                         mcp_result = self._send_email_via_mcp(email_to, email_subject, email_body)
                         if mcp_result.get('success', False):
                             content += f"**MCP Result:** Email sent successfully\n"
-                            logger.info(f"✓ Email sent successfully to {email_to}")
+                            logger.info(f"[OK] Email sent successfully to {email_to}")
                             
                             # AUDIT LOG: Email sent successfully
                             self.audit.log_email_send(
@@ -814,7 +844,7 @@ Begin. Output ONLY the JSON:'''
                             original_email.write_text(email_content, encoding='utf-8')
                             email_dest = self.done_path / source_item
                             original_email.rename(email_dest)
-                            logger.info(f"✓ Also moved original email to Done: {source_item}")
+                            logger.info(f"[OK] Also moved original email to Done: {source_item}")
                         else:
                             # Check if already in Done/
                             already_done = self.done_path / source_item
@@ -1022,7 +1052,7 @@ Begin. Output ONLY the JSON:'''
     def auto_post_social(self):
         """Auto-generate, auto-approve, and post social media in ONE cycle.
         
-        Full autonomous: Qwen generates → creates plan → posts immediately → Done.
+        Full autonomous: Kilo generates -> creates plan -> posts immediately -> Done.
         No manual approval needed for social media posts (low risk).
         """
         import subprocess
@@ -1050,7 +1080,7 @@ Begin. Output ONLY the JSON:'''
             logger.info("Social posts already posted today, skipping")
             return False
 
-        # Build Qwen prompt
+        # Build Kilo prompt
         prompt = f'''You are my AI Employee social media manager. Generate ONE Facebook post and ONE Twitter/X post.
 
 ## Business Goals
@@ -1074,14 +1104,14 @@ Begin. Output ONLY the JSON:'''
 ```
 Output ONLY JSON.'''
 
-        # Run Qwen
-        logger.info("🧠 Qwen generating social posts...")
+        # Run Kilo
+        logger.info("[DONE] Kilo generating social posts...")
         fb_message = None
         tw_message = None
 
         try:
             result = subprocess.run(
-                'qwen --prompt "' + prompt.replace('"', "'").replace('\n', ' ') + '"',
+                'kilo --prompt "' + prompt.replace('"', "'").replace('\n', ' ') + '"',
                 capture_output=True, text=True, timeout=45,
                 encoding='utf-8', errors='replace', shell=True,
             )
@@ -1094,7 +1124,7 @@ Output ONLY JSON.'''
             logger.info(f"  FB: {fb_message[:60]}...")
             logger.info(f"  TW: {tw_message[:60]}...")
         except Exception as e:
-            logger.warning(f"Qwen failed: {e}, using fallback")
+            logger.warning(f"Kilo failed: {e}, using fallback")
             fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
             tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
 
@@ -1118,15 +1148,15 @@ status: auto_posted
 ## Twitter Post
 {tw_message}
 
-*Generated & posted by AI Employee (Qwen) at {datetime.now().strftime('%H:%M')}*
+*Generated & posted by AI Employee (Kilo) at {datetime.now().strftime('%H:%M')}*
 """, encoding='utf-8')
-        logger.info(f"📋 Plan created: {plan_path.name}")
+        logger.info(f"[CYCLE] Plan created: {plan_path.name}")
 
         posted_any = False
 
         # Post to Facebook
         if fb_message and not fb_done:
-            logger.info("📘 Posting to Facebook...")
+            logger.info("[WARNING] Posting to Facebook...")
             result = self._post_to_facebook(fb_message)
             if result.get('success'):
                 # Write completion record to Done/
@@ -1136,7 +1166,7 @@ type: social_post
 platform: facebook
 posted: {datetime.now().isoformat()}
 status: published
-source: ai_generated_qwen
+source: ai_generated_kilo
 ---
 
 # Facebook Post Published
@@ -1151,7 +1181,7 @@ source: ai_generated_qwen
 
 *Auto-posted by AI Employee*
 """, encoding='utf-8')
-                logger.info(f"✅ Facebook posted: {result.get('url')}")
+                logger.info(f"[...] Facebook posted: {result.get('url')}")
 
                 self.audit.log_action(
                     action_type="facebook_post",
@@ -1177,7 +1207,7 @@ type: social_post
 platform: twitter
 posted: {datetime.now().isoformat()}
 status: published
-source: ai_generated_qwen
+source: ai_generated_kilo
 ---
 
 # Twitter Post Published
@@ -1192,7 +1222,7 @@ source: ai_generated_qwen
 
 *Auto-posted by AI Employee*
 """, encoding='utf-8')
-                logger.info(f"✅ Twitter posted: {result.get('url')}")
+                logger.info(f"[...] Twitter posted: {result.get('url')}")
 
                 self.audit.log_action(
                     action_type="twitter_post",
@@ -1210,9 +1240,9 @@ source: ai_generated_qwen
         return posted_any
 
     def generate_social_posts(self):
-        """Auto-generate social media posts from Business_Goals.md using Qwen AI.
+        """Auto-generate social media posts from Business_Goals.md using Kilo AI.
         
-        Reads business context + handbook rules, asks Qwen to generate relevant
+        Reads business context + handbook rules, asks Kilo to generate relevant
         posts for Facebook and Twitter, then creates approval files.
         Only generates ONE post per platform per cycle to avoid spam.
         """
@@ -1247,7 +1277,7 @@ source: ai_generated_qwen
         # Always generate NEW posts each run (unique filenames with timestamp)
         # Old pending approvals stay — user can approve multiple posts
 
-        # Build Qwen prompt for AI-powered content generation
+        # Build Kilo prompt for AI-powered content generation
         prompt = f'''You are my AI Employee's social media manager. Generate ONE Facebook post and ONE Twitter/X post about AI, technology, and current world trends.
 
 ## Business Context (use as reference, not main topic)
@@ -1281,12 +1311,12 @@ source: ai_generated_qwen
 
 Output ONLY the JSON. No explanation.'''
 
-        # Run Qwen to generate
-        logger.info("🧠 Asking Qwen to generate social media posts (AI/tech topics)...")
+        # Run Kilo to generate
+        logger.info("[DONE] Asking Kilo to generate social media posts (AI/tech topics)...")
         try:
-            # Try Qwen CLI first (with short timeout since it's interactive)
+            # Try Kilo CLI first (with short timeout since it's interactive)
             result = subprocess.run(
-                'qwen --prompt "' + prompt.replace('"', "'").replace('\n', ' ') + '"',
+                'kilo --prompt "' + prompt.replace('"', "'").replace('\n', ' ') + '"',
                 capture_output=True,
                 text=True,
                 timeout=45,
@@ -1297,12 +1327,12 @@ Output ONLY the JSON. No explanation.'''
 
             output = result.stdout
             if result.returncode != 0:
-                logger.warning(f"Qwen returned error: {result.stderr[:200]}")
+                logger.warning(f"Kilo returned error: {result.stderr[:200]}")
                 # Fallback to template-based
                 fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
                 tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
             else:
-                # Extract JSON from Qwen output
+                # Extract JSON from Kilo output
                 json_match = re.search(r'```json\s*(.*?)\s*```', output, re.DOTALL)
                 json_str = json_match.group(1) if json_match else output
 
@@ -1310,19 +1340,19 @@ Output ONLY the JSON. No explanation.'''
                     posts = json.loads(json_str)
                     fb_message = posts.get('facebook', '')
                     tw_message = posts.get('twitter', '')
-                    logger.info(f"Qwen generated Facebook post: {fb_message[:60]}...")
-                    logger.info(f"Qwen generated Twitter post: {tw_message[:60]}...")
+                    logger.info(f"Kilo generated Facebook post: {fb_message[:60]}...")
+                    logger.info(f"Kilo generated Twitter post: {tw_message[:60]}...")
                 except json.JSONDecodeError:
-                    logger.warning("Failed to parse Qwen JSON, using fallback templates")
+                    logger.warning("Failed to parse Kilo JSON, using fallback templates")
                     fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
                     tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
 
         except subprocess.TimeoutExpired:
-            logger.warning("Qwen timed out, using fallback templates")
+            logger.warning("Kilo timed out, using fallback templates")
             fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
             tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
         except Exception as e:
-            logger.warning(f"Qwen error: {e}, using fallback templates")
+            logger.warning(f"Kilo error: {e}, using fallback templates")
             fb_message = self._generate_post_content("facebook", goals_content, handbook_rules)
             tw_message = self._generate_post_content("twitter", goals_content, handbook_rules)
 
@@ -1334,7 +1364,7 @@ type: plan
 created: {datetime.now().isoformat()}
 status: generated
 platforms: facebook, twitter
-source: ai_employee_qwen
+source: ai_employee_kilo
 ---
 
 # Social Media Plan - {today}
@@ -1355,7 +1385,7 @@ source: ai_employee_qwen
 
 ---
 
-*Generated by AI Employee (Qwen) at {datetime.now().strftime('%H:%M')}*
+*Generated by AI Employee (Kilo) at {datetime.now().strftime('%H:%M')}*
 """
         plan_path.write_text(plan_content, encoding='utf-8')
         logger.info(f"Created social media plan: {plan_path.name}")
@@ -1370,7 +1400,7 @@ action: facebook_post
 created: {datetime.now().isoformat()}
 status: pending
 priority: normal
-source: ai_generated_qwen
+source: ai_generated_kilo
 platform: facebook
 ---
 
@@ -1380,7 +1410,7 @@ platform: facebook
 - **Message:** {fb_message}
 - **Platform:** Facebook Page
 - **Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
-- **Source:** Qwen AI - Business Goals Analysis
+- **Source:** Kilo AI - Business Goals Analysis
 
 ## To Approve
 Move this file to `/Approved/` folder to publish.
@@ -1392,7 +1422,7 @@ Move this file to `/Rejected/` folder.
 Modify the message above, then move to `/Approved/`.
 """
             fb_approval_path.write_text(fb_content, encoding='utf-8')
-            logger.info(f"✅ Auto-generated Facebook post: {fb_approval_path.name}")
+            logger.info(f"[...] Auto-generated Facebook post: {fb_approval_path.name}")
 
         # Create Twitter approval file
         if tw_message:
@@ -1404,7 +1434,7 @@ action: twitter_post
 created: {datetime.now().isoformat()}
 status: pending
 priority: normal
-source: ai_generated_qwen
+source: ai_generated_kilo
 platform: twitter
 ---
 
@@ -1414,7 +1444,7 @@ platform: twitter
 - **Tweet:** {tw_message}
 - **Platform:** Twitter/X
 - **Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M')}
-- **Source:** Qwen AI - Business Goals Analysis
+- **Source:** Kilo AI - Business Goals Analysis
 
 ## To Approve
 Move this file to `/Approved/` folder to publish.
@@ -1426,7 +1456,7 @@ Move this file to `/Rejected/` folder.
 Modify the tweet text above (max 280 chars), then move to `/Approved/`.
 """
             tw_approval_path.write_text(tw_content, encoding='utf-8')
-            logger.info(f"✅ Auto-generated Twitter post: {tw_approval_path.name}")
+            logger.info(f"[...] Auto-generated Twitter post: {tw_approval_path.name}")
 
     def _generate_post_content(self, platform: str, goals: str, handbook: str = "") -> str:
         """Generate social media post content based on business goals.
@@ -1455,24 +1485,24 @@ Modify the tweet text above (max 280 chars), then move to `/Approved/`.
         if platform == "facebook":
             templates = [
                 f"🚀 Working towards our Q1 2026 goals! Monthly target: {revenue_target}. We're building something great. #AI #Innovation #Business",
-                f"💡 AI Employee update: Automating business operations one step at a time. Building autonomous systems that work 24/7. #AIAutomation #DigitalFTE",
-                f"📊 Q1 2026 Update: Our AI Employee is handling email, social media, and accounting autonomously. The future of work is here. #AI #Productivity",
-                f"🎯 This week's focus: {revenue_target} monthly revenue target. Our AI assistant is working around the clock to make it happen. #StartupLife #AI",
-                f"🤖 Did you know? Our AI Employee monitors Gmail, posts on social media, and manages invoices — all autonomously with human approval. #AI #Automation",
+                f"[START] AI Employee update: Automating business operations one step at a time. Building autonomous systems that work 24/7. #AIAutomation #DigitalFTE",
+                f"[DONE] Q1 2026 Update: Our AI Employee is handling email, social media, and accounting autonomously. The future of work is here. #AI #Productivity",
+                f"[STOP] This week's focus: {revenue_target} monthly revenue target. Our AI assistant is working around the clock to make it happen. #StartupLife #AI",
+                f"[INFO] Did you know? Our AI Employee monitors Gmail, posts on social media, and manages invoices — all autonomously with human approval. #AI #Automation",
             ]
         else:  # twitter
             templates = [
                 f"🚀 Q1 2026 Goal: {revenue_target}/month. Our AI Employee is working 24/7 to make it happen. #AIAutomation #BuildInPublic",
-                f"💡 AI Employee can now:\n✅ Monitor emails\n✅ Auto-post on social media\n✅ Manage invoices\n✅ Generate CEO briefings\n\nThe future is autonomous. #AI",
-                f"📊 Building an AI Employee that works 24/7. Currently at {mtd} MTD towards our {revenue_target} goal. Progress > Perfection. #BuildInPublic",
-                f"🤖 Our AI Employee just posted this tweet autonomously (with human approval, of course). Testing autonomous social media. #AI #Automation",
-                f"🎯 Q1 2026: Building autonomous business systems. AI handles email, social, accounting. Human approves, AI executes. #AIAutomation",
+                f"[START] AI Employee can now:\n[...] Monitor emails\n[...] Auto-post on social media\n[...] Manage invoices\n[...] Generate CEO briefings\n\nThe future is autonomous. #AI",
+                f"[DONE] Building an AI Employee that works 24/7. Currently at {mtd} MTD towards our {revenue_target} goal. Progress > Perfection. #BuildInPublic",
+                f"[INFO] Our AI Employee just posted this tweet autonomously (with human approval, of course). Testing autonomous social media. #AI #Automation",
+                f"[STOP] Q1 2026: Building autonomous business systems. AI handles email, social, accounting. Human approves, AI executes. #AIAutomation",
             ]
 
         return random.choice(templates)
 
-    def parse_qwen_output(self, output_file: Path) -> Dict:
-        """Parse Qwen's output to extract approval requests and archive decisions."""
+    def parse_kilo_output(self, output_file: Path) -> Dict:
+        """Parse Kilo's output to extract approval requests and archive decisions."""
         if not output_file.exists():
             return {'approvals': [], 'archives': []}
 
@@ -1579,19 +1609,19 @@ _Add notes here_
         # Auto-generate social media posts (creates approval files in Pending_Approval/)
         self.generate_social_posts()
 
-        # Process pending emails using Qwen Email Processor (Silver Tier AI reasoning)
+        # Process pending emails using Kilo Email Processor (Silver Tier AI reasoning)
         if pending:
-            logger.info(f"Processing {len(pending)} email(s) with Qwen Email Processor")
+            logger.info(f"Processing {len(pending)} email(s) with Kilo Email Processor")
 
             try:
-                from qwen_email_processor import QwenEmailProcessor
-                processor = QwenEmailProcessor(self.vault_path)
-                results = processor.process_with_qwen()
-
+                from kilo_email_processor import KiloEmailProcessor
+                processor = KiloEmailProcessor(self.vault_path)
+                results = processor.process_with_kilo()
+                
                 logger.info(f"Processing results: {results}")
 
             except Exception as e:
-                logger.error(f"Qwen Email Processor failed: {e}")
+                logger.error(f"Kilo Email Processor failed: {e}")
                 # Fallback: move to In_Progress for manual review
                 for item in pending:
                     in_progress_file = self.in_progress_path / item.name
@@ -1610,12 +1640,13 @@ _Add notes here_
         final_pending_approvals = len(self.get_pending_approvals())
         self.update_dashboard(final_pending, final_approved, final_pending_approvals)
 
-        # Print summary for user
+# Print summary for user
         if pending_approvals:
-            print(f"\n📬 Awaiting your approval:")
+            print(f"\n[APPROVAL] Awaiting your approval:")
             for item in pending_approvals:
-                print(f"  ⏳ {item.name}")
-            print(f"\n  → Move files to Approved/ then run again to post")
+                print(f"  [-] {item.name}")
+            print(f"\n  -> Move files to Approved/ then run again to post")
+
 
     def run(self, max_iterations=10):
         """Run orchestrator with Ralph Wiggum autonomous loop.
@@ -1623,12 +1654,12 @@ _Add notes here_
         Keeps cycling until all automated tasks are done.
         Stops when only Pending_Approval items remain (waiting for human).
         """
-        logger.info(f"🔄 Starting Ralph Wiggum autonomous loop (max {max_iterations} iterations)")
+        logger.info(f"[START] Starting Ralph Wiggum autonomous loop (max {max_iterations} iterations)")
         logger.info(f"   Vault: {self.vault_path}")
 
         for iteration in range(1, max_iterations + 1):
             logger.info(f"\n{'='*60}")
-            logger.info(f"📍 Iteration {iteration}/{max_iterations}")
+            logger.info(f"[CYCLE] Iteration {iteration}/{max_iterations}")
             logger.info(f"{'='*60}")
 
             # Run one processing cycle
@@ -1646,7 +1677,7 @@ _Add notes here_
                 if len(pending_approvals) > 0:
                     logger.info(f"\n⏳ AI work complete. {len(pending_approvals)} item(s) waiting for your approval.")
                 else:
-                    logger.info(f"\n✅ All tasks complete!")
+                    logger.info(f"\n[...] All tasks complete!")
                 # Final dashboard refresh
                 self.update_dashboard(0, 0, len(pending_approvals))
                 return

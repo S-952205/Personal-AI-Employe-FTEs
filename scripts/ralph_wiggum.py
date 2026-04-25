@@ -51,14 +51,14 @@ class RalphWiggumLoop:
         max_iterations: int = 10,
         completion_promise: Optional[str] = None,
         completion_file_pattern: Optional[str] = None,
-        qwen_command: str = "qwen"
+        kilo_command: str = "kilo"
     ):
         self.vault_path = vault_path
         self.prompt = prompt
         self.max_iterations = max_iterations
         self.completion_promise = completion_promise
         self.completion_file_pattern = completion_file_pattern
-        self.qwen_command = qwen_command
+        self.kilo_command = kilo_command
         self.current_iteration = 0
         self.state_file = self.vault_path / 'In_Progress' / 'ralph_wiggum_state.md'
 
@@ -168,15 +168,15 @@ Current state:
 
     def _run_ai_agent(self, prompt: str) -> str:
         """
-        Run AI agent (Qwen Code) with the given prompt.
+        Run AI agent (Kilo Code) with the given prompt.
         Returns the output text.
         """
         logger.info(f"🤖 Running AI agent...")
 
         try:
-            # Run Qwen Code with the prompt
+            # Run Kilo Code with the prompt
             result = subprocess.run(
-                [self.qwen_command, '--prompt', prompt],
+                [self.kilo_command, '--prompt', prompt],
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minute timeout per iteration
@@ -194,7 +194,7 @@ Current state:
             logger.error("⏰ AI agent timed out after 5 minutes")
             return "TIMEOUT"
         except FileNotFoundError:
-            logger.error(f"❌ AI agent command not found: {self.qwen_command}")
+            logger.error(f"❌ AI agent command not found: {self.kilo_command}")
             raise
         except Exception as e:
             logger.error(f"❌ AI agent error: {e}")
@@ -323,10 +323,10 @@ def main():
         help='File pattern to check for completion'
     )
     parser.add_argument(
-        '--qwen-command',
+        '--kilo-command',
         type=str,
-        default='qwen',
-        help='Command to run Qwen Code (default: qwen)'
+        default='kilo',
+        help='Command to run Kilo Code (default: kilo)'
     )
 
     args = parser.parse_args()
@@ -342,7 +342,7 @@ def main():
         max_iterations=args.max_iterations,
         completion_promise=args.completion_promise,
         completion_file_pattern=args.completion_file,
-        qwen_command=args.qwen_command
+        kilo_command=args.kilo_command
     )
 
     success = loop.run()

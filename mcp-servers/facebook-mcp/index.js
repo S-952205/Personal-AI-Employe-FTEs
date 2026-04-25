@@ -30,13 +30,14 @@ const CONFIG = {
   FACEBOOK_APP_SECRET: 'fd281bbe539d1db1adb240691cea4181',   // Replace with your App Secret
   
   // Page Access Token (generate from Facebook Graph API Explorer)
-  FACEBOOK_PAGE_ACCESS_TOKEN: 'EAANqfnwKehYBRBpyqranxfNQvEXQS1LGilUHASZCjvjXh8OOhvgO5mxOIKNznUFN0z9c5fZB13Y1QovHKad40yubCcVMKu53hLs6kEm7s4rHtZA3lyONKT6dceXJXifeJKdO0hn0a4J6F6FpHaDVCZArvy99tOGcagmvZASbqvxrAsc6EkXdEfG0u8rTZBcgvhT4fHePny',  // Replace with your token
+  // Page Access Token (proper Page Access Token obtained via Graph API) - Long-lived until June 19 2026
+  FACEBOOK_PAGE_ACCESS_TOKEN: 'EAANqfnwKehYBRZADDetXm9UjOSMFtpdWxLZAwC8RUiIGG55LPVINLsp3cAiLo7KFHjrZAU2Nkq1tIQLD7YF5KJBV3ik0S2jbZAHIAw2gfZChQu56KvhShX7ml8VbEQdyrKgQMs2uVZAQ3vB4nfn7DPNUxvS933StIt50bZAj6GpItapAZC6odxNMA1nKS2PXgdcoXZAx2yAZBl',
   
   // Facebook Page ID (find in Page settings)
   FACEBOOK_PAGE_ID: '1045279958668364',         // Replace with your Page ID
   
   // Instagram Business Account ID (linked to Facebook Page)
-  INSTAGRAM_BUSINESS_ACCOUNT_ID: 'DUMMY',  // Replace with your IG account ID
+  INSTAGRAM_BUSINESS_ACCOUNT_ID: '17841448064656855',
   
   // Base URLs
   GRAPH_API_BASE: 'https://graph.facebook.com/v19.0',

@@ -59,3 +59,7 @@ token.pickle
 session/
 sessions/
 *.session
+linkedin_session/
+
+# MCP configs may contain secrets - review before committing
+mcp-config.json

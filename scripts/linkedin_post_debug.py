@@ -31,7 +31,7 @@ def debug_linkedin_post():
     # Sample post content
     content = """🚀 Exciting News!
 
-Testing LinkedIn automation with Qwen AI.
+Testing LinkedIn automation with Kilo AI.
 
 #AI #Automation #Testing
 """

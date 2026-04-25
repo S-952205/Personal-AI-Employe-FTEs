@@ -37,9 +37,9 @@ logger = logging.getLogger('FacebookWatcher')
 # ============================================
 
 FACEBOOK_CONFIG = {
-    'PAGE_ACCESS_TOKEN': 'EAANqfnwKehYBRBpyqranxfNQvEXQS1LGilUHASZCjvjXh8OOhvgO5mxOIKNznUFN0z9c5fZB13Y1QovHKad40yubCcVMKu53hLs6kEm7s4rHtZA3lyONKT6dceXJXifeJKdO0hn0a4J6F6FpHaDVCZArvy99tOGcagmvZASbqvxrAsc6EkXdEfG0u8rTZBcgvhT4fHePny',  # Replace with your token
-    'PAGE_ID': '1045279958668364',              # Replace with your Page ID
-    'INSTAGRAM_ACCOUNT_ID': 'DUMMY',  # Replace with IG account ID
+    'PAGE_ACCESS_TOKEN': 'EAANqfnwKehYBRZADDetXm9UjOSMFtpdWxLZAwC8RUiIGG55LPVINLsp3cAiLo7KFHjrZAU2Nkq1tIQLD7YF5KJBV3ik0S2jbZAHIAw2gfZChQu56KvhShX7ml8VbEQdyrKgQMs2uVZAQ3vB4nfn7DPNUxvS933StIt50bZAj6GpItapAZC6odxNMA1nKS2PXgdcoXZAx2yAZBl',  # Long-lived until June 19 2026
+    'PAGE_ID': '1045279958668364',
+    'INSTAGRAM_ACCOUNT_ID': '17841448064656855',
     'GRAPH_API_BASE': 'https://graph.facebook.com/v19.0',
     'CHECK_INTERVAL': 300,  # 5 minutes
 }

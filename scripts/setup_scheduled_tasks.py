@@ -4,11 +4,11 @@ Setup Windows Task Scheduler for Gold Tier
 
 Creates scheduled tasks:
 1. CEO Briefing — Every Sunday at 10:00 PM
-2. Orchestrator — Every 30 minutes
+2. (NO Orchestrator - PM2 handles that!)
 
 Usage:
-    python scripts\setup_scheduled_tasks.py          (install tasks)
-    python scripts\setup_scheduled_tasks.py --remove  (remove tasks)
+    python scripts\setup_scheduled_tasks.py          (install CEO Briefing only)
+    python scripts\setup_scheduled_tasks.py --remove  (remove all tasks)
     python scripts\setup_scheduled_tasks.py --list    (list tasks)
 """
 
@@ -42,29 +42,22 @@ def get_script_path(name):
     return str((SCRIPTS / name).absolute()).replace(' ', '^ ').replace('\\', '\\\\')
 
 def install():
-    """Create scheduled tasks."""
+    """Create scheduled tasks - CEO Briefing ONLY."""
     print("\n" + "="*60)
     print("SETTING UP WINDOWS TASK SCHEDULER")
     print("="*60)
+    print("\nNOTE: Orchestrator/run.py is NOT scheduled!")
+    print("      PM2 already runs orchestrator continuously.")
+    print("      Scheduling both causes duplicate post generation!")
 
     py = get_python_path()
 
     # Task 1: CEO Briefing — Every Sunday at 10:00 PM
-    print("\n📊 Task 1: CEO Briefing (Sunday 10:00 PM)")
+    print("\n📊 Task: CEO Briefing (Sunday 10:00 PM)")
     cmd = (
         f'schtasks /Create /TN "AI_Employee_CEO_Briefing" '
         f'/TR "{py} {get_script_path('ceo_briefing.py')}" '
         f'/SC WEEKLY /D SUN /ST 22:00 '
-        f'/RL HIGHEST /F'
-    )
-    run_schtasks(cmd)
-
-    # Task 2: Orchestrator — Every 30 minutes
-    print("\n🤖 Task 2: Orchestrator (every 30 min)")
-    cmd = (
-        f'schtasks /Create /TN "AI_Employee_Orchestrator" '
-        f'/TR "{py} {get_script_path('run.py')}" '
-        f'/SC MINUTE /MO 30 '
         f'/RL HIGHEST /F'
     )
     run_schtasks(cmd)
@@ -74,7 +67,6 @@ def install():
     print(f"{'='*60}")
     print("\nTo verify:")
     print("  schtasks /Query /TN AI_Employee_CEO_Briefing")
-    print("  schtasks /Query /TN AI_Employee_Orchestrator")
     print("\nTo remove:")
     print("  python scripts\\setup_scheduled_tasks.py --remove")
 
@@ -90,7 +82,6 @@ def list_tasks():
     print("\nScheduled Tasks:")
     subprocess.run('schtasks /Query /TN AI_Employee_CEO_Briefing', shell=True)
     print()
-    subprocess.run('schtasks /Query /TN AI_Employee_Orchestrator', shell=True)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

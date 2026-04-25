@@ -9,7 +9,7 @@ Flow:
 5. Close browser manually
 6. Session saved for watcher and posting
 
-Uses Qwen Code for reasoning.
+Uses Kilo Code for reasoning.
 """
 
 import time
@@ -110,7 +110,7 @@ def login():
             print()
             print("NEXT STEP:")
             print("  Run: python scripts/linkedin_post.py")
-            print("  This will open LinkedIn and post using Qwen AI")
+            print("  This will open LinkedIn and post using Kilo AI")
             print()
             
             # Wait for user to close browser

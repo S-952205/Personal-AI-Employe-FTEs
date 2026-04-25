@@ -1,14 +1,14 @@
 """
 LinkedIn Watcher for AI Employee - Silver Tier
 
-Monitors LinkedIn and creates action files for Qwen AI to process.
+Monitors LinkedIn and creates action files for Kilo AI to process.
 Since LinkedIn blocks automated login, this watcher:
 1. Creates sample LinkedIn items for demo
 2. Reads from manual input file (LinkedIn_Inbox.md)
-3. Qwen AI processes items and drafts posts
+3. Kilo AI processes items and drafts posts
 
 Flow:
-  Watcher → Creates action files → Qwen processes → Creates approval → You approve → Post
+  Watcher → Creates action files → Kilo processes → Creates approval → You approve → Post
 """
 
 import time
@@ -30,7 +30,7 @@ logger = logging.getLogger('LinkedInWatcher')
 
 
 class LinkedInWatcher:
-    """LinkedIn watcher that creates action files for Qwen AI."""
+    """LinkedIn watcher that creates action files for Kilo AI."""
 
     def __init__(self, vault_path: str, check_interval: int = 300):
         self.vault_path = Path(vault_path)
@@ -131,11 +131,11 @@ category: {category}
 
 ---
 
-## Suggested Actions for Qwen AI
+## Suggested Actions for Kilo AI
 
 """
             if item_type == 'opportunity' or category == 'business_opportunity':
-                content_text += """### Qwen AI Tasks:
+                content_text += """### Kilo AI Tasks:
 1. Review the opportunity
 2. Draft a professional response
 3. Create a LinkedIn post about this opportunity (for business generation)
@@ -149,14 +149,14 @@ category: {category}
 - Do not mention specific client names without approval
 """
             elif item_type == 'message':
-                content_text += """### Qwen AI Tasks:
+                content_text += """### Kilo AI Tasks:
 1. Read the message carefully
 2. Draft appropriate response
 3. Save draft to /Plans/ folder
 4. Create approval request (requires approval for new contacts)
 """
             else:
-                content_text += """### Qwen AI Tasks:
+                content_text += """### Kilo AI Tasks:
 1. Review the content
 2. Determine appropriate action
 3. Draft response/post if needed
@@ -170,7 +170,7 @@ category: {category}
 
 _Add your notes and actions taken here_
 
-**Processed by:** Qwen AI
+**Processed by:** Kilo AI
 **Date:** _Will be filled after processing_
 **Status:** Pending
 
@@ -190,15 +190,15 @@ _Add your notes and actions taken here_
         logger.info("Press Ctrl+C to stop")
         logger.info("")
         logger.info("=" * 70)
-        logger.info("LINKEDIN WATCHER - QWEN AI EDITION")
+        logger.info("LINKEDIN WATCHER - KILO AI EDITION")
         logger.info("=" * 70)
         logger.info("")
-        logger.info("This watcher creates action files for Qwen AI to process.")
+        logger.info("This watcher creates action files for Kilo AI to process.")
         logger.info("")
         logger.info("Workflow:")
         logger.info("  1. Watcher creates action files in /Needs_Action/")
-        logger.info("  2. Qwen AI reads and processes items")
-        logger.info("  3. Qwen drafts posts in /Plans/")
+        logger.info("  2. Kilo AI reads and processes items")
+        logger.info("  3. Kilo drafts posts in /Plans/")
         logger.info("  4. Creates approval requests in /Pending_Approval/")
         logger.info("  5. You approve → Run: python scripts/linkedin_post.py")
         logger.info("")
